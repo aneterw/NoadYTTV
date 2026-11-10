@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private var searchJob: CoroutineJob? = null
     private var selectedPosition: Int = -1
     private var isReturningFromPlayer = false
+    private var lastSearchQuery = ""
 
     // 使用 Activity Result API 處理從 PlayerActivity 返回
     private val playerActivityLauncher = registerForActivityResult(
@@ -91,7 +92,7 @@ class MainActivity : ComponentActivity() {
                             android.R.layout.simple_list_item_1,
                             listOf("无搜索结果")
                         )
-                        searchingText.text = "搜索完成：找到 0 个影片"
+                        searchingText.text = "搜索完成：找到 0 个影片 $lastSearchQuery"
                         searchingText.visibility = android.view.View.VISIBLE
                     } else {
                         val adapter = VideoAdapter(this@MainActivity, videos, imageLoader!!)
@@ -100,7 +101,7 @@ class MainActivity : ComponentActivity() {
                             val selectedVideo = videos[position]
                             playVideo(selectedVideo, position)
                         }
-                        searchingText.text = "搜索完成：找到 ${videos.size} 个影片"
+                        searchingText.text = "搜索完成：找到 ${videos.size} 个影片 $lastSearchQuery"
                         searchingText.visibility = android.view.View.VISIBLE
                         
                         // 如果是從 PlayerActivity 返回，恢復焦點
@@ -158,6 +159,7 @@ class MainActivity : ComponentActivity() {
         val searchInput = findViewById<EditText>(R.id.search_input)
         val query = searchInput.text.toString()
         if (query.isNotBlank()) {
+            lastSearchQuery = query
             val searchingText = findViewById<TextView>(R.id.searching_text)
             searchingText.text = "正在搜索：$query"
             searchingText.visibility = android.view.View.VISIBLE
