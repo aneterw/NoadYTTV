@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">NoadYTTV</string>
+    <string name="search">搜尋</string>
+    <string name="search_hint">搜尋 YouTube 影片…</string>
+    <string name="search_hint_detail">輸入關鍵字搜尋影片</string>
+    <string name="search_results">搜尋結果</string>
+    <string name="no_results">無搜尋結果</string>
+    <string name="playback_error">播放錯誤</string>
+    <string name="player_options">播放器選項</string>
+    <string name="play_pause">播放/暫停</string>
+    <string name="stop">停止</string>
+    <string name="previous">上一部</string>
+    <string name="next">下一部</string>
+    <string name="subtitles">字幕</string>
+    <string name="quality">畫質</string>
+    <string name="audio_track">聲音軌</string>
+    <string name="video_info">影片資訊</string>
+    <string name="auto_play_next">自動播放下一集</string>
+    <string name="voice_search">語音搜尋</string>
+</resources>

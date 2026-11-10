@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# APK output
+app/build/
+app/*/build/
+
+# Chaquopy build
+app/build/python/
+
+# Local config (contains API keys)
+local.properties
+.gradle/caches/
+
+# Build outputs
+*.apk
+*.aab
+
+# OS
+Thumbs.db

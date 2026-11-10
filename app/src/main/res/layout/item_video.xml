@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="4dp">
+
+    <!-- 縮圖 -->
+    <ImageView
+        android:id="@+id/video_thumbnail"
+        android:layout_width="180dp"
+        android:layout_height="101dp"
+        android:scaleType="centerCrop"
+        android:background="#333333"
+        android:contentDescription="影片縮圖" />
+
+    <!-- 標題 -->
+    <TextView
+        android:id="@+id/video_title"
+        android:layout_width="180dp"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:layout_marginTop="4dp" />
+
+    <!-- 頻道與時間 -->
+    <LinearLayout
+        android:layout_width="180dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="2dp">
+
+        <TextView
+            android:id="@+id/video_channel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#AAAAAA"
+            android:textSize="11sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/video_duration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#AAAAAA"
+            android:textSize="11sp"
+            android:gravity="end" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 焦點狀態（遙控器移到卡片上時）- 背景變亮，明顯顯示選中 -->
+    <item android:state_focused="true" android:state_pressed="false">
+        <shape android:shape="rectangle">
+            <solid android:color="#3a3a3a" />
+            <corners android:radius="8dp" />
+            <stroke android:width="4dp" android:color="#00FF00" />
+            <padding android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp" />
+        </shape>
+    </item>
+    <!-- 按下狀態 -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#4a4a4a" />
+            <corners android:radius="8dp" />
+            <stroke android:width="4dp" android:color="#32CD32" />
+            <padding android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp" />
+        </shape>
+    </item>
+    <!-- 一般狀態 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#1a1a1a" />
+            <corners android:radius="6dp" />
+            <stroke android:width="1dp" android:color="#444444" />
+            <padding android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp" />
+        </shape>
+    </item>
+</selector>
