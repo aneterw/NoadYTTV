@@ -2,6 +2,7 @@ package com.noadytv
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -14,13 +15,16 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.GridView
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -31,7 +35,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job as CoroutineJob
+import kotlinx.coroutines.Job
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 
@@ -42,10 +46,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private var imageLoader: ImageLoader? = null
-    private var searchJob: CoroutineJob? = null
+    private var searchJob: Job? = null
     private var selectedPosition: Int = -1
     private var isReturningFromPlayer = false
     private var lastSearchQuery = ""
+    private var clearSearchJob: Job? = null
+
+    // 搜尋歷史（本地持久化）
+    private val searchHistory = mutableListOf<String>()
+    private lateinit var prefs: SharedPreferences
+    private lateinit var historyContainer: LinearLayout
+    private lateinit var historyScroll: HorizontalScrollView
 
     // 使用 Activity Result API 處理從 PlayerActivity 返回
     private val playerActivityLauncher = registerForActivityResult(
@@ -153,6 +164,13 @@ class MainActivity : ComponentActivity() {
 
         // 启动时焦点在搜索输入框
         searchInput.requestFocus()
+
+        // 初始化搜尋歷史
+        prefs = getSharedPreferences("noadytv_prefs", Context.MODE_PRIVATE)
+        historyContainer = findViewById(R.id.history_container)
+        historyScroll = findViewById(R.id.history_scroll)
+        loadSearchHistory()
+        showSearchHistory()
     }
 
     private fun performSearch() {
@@ -160,10 +178,18 @@ class MainActivity : ComponentActivity() {
         val query = searchInput.text.toString()
         if (query.isNotBlank()) {
             lastSearchQuery = query
+            addSearchHistory(query)
             val searchingText = findViewById<TextView>(R.id.searching_text)
             searchingText.text = "正在搜索：$query"
             searchingText.visibility = android.view.View.VISIBLE
             viewModel.search(query)
+
+            // 搜尋觸發後 0.5 秒自動清除關鍵字輸入框，但保留搜尋結果畫面
+            clearSearchJob?.cancel()
+            clearSearchJob = CoroutineScope(Dispatchers.Main).launch {
+                delay(500)
+                searchInput.setText("")
+            }
         }
     }
 
@@ -234,5 +260,112 @@ class MainActivity : ComponentActivity() {
 
             return view
         }
+    }
+
+    // ========== 搜尋歷史相關方法 ==========
+
+    private fun loadSearchHistory() {
+        val json = prefs.getString("search_history", null)
+        if (json != null && json.isNotBlank()) {
+            val items = json.split(",".toRegex()).filter { it.isNotBlank() }
+            searchHistory.clear()
+            searchHistory.addAll(items)
+        }
+    }
+
+    private fun saveSearchHistory() {
+        val json = searchHistory.joinToString(",")
+        prefs.edit().putString("search_history", json).apply()
+    }
+
+    private fun addSearchHistory(query: String) {
+        // 移除重複（如果已存在先移除）
+        searchHistory.removeAll { it == query }
+        // 加到最前面
+        searchHistory.add(0, query)
+        // 最多保留 20 個
+        if (searchHistory.size > 20) {
+            searchHistory.removeAt(searchHistory.size - 1)
+        }
+        saveSearchHistory()
+        showSearchHistory()
+    }
+
+    private fun removeSearchHistory(query: String) {
+        searchHistory.removeAll { it == query }
+        saveSearchHistory()
+        showSearchHistory()
+    }
+
+    private fun clearAllSearchHistory() {
+        searchHistory.clear()
+        saveSearchHistory()
+        showSearchHistory()
+    }
+
+    private fun showSearchHistory() {
+        historyContainer.removeAllViews()
+
+        if (searchHistory.isEmpty()) {
+            historyScroll.visibility = android.view.View.GONE
+            return
+        }
+
+        historyScroll.visibility = android.view.View.VISIBLE
+
+        for (keyword in searchHistory) {
+            val btn = Button(this)
+            btn.text = keyword
+            btn.textSize = 12f
+            btn.setTextColor(android.graphics.Color.WHITE)
+            // 橢圓形（胶囊）背景，縮小高度
+            val bg = android.graphics.drawable.GradientDrawable()
+            bg.setColor(android.graphics.Color.parseColor("#444444"))
+            bg.setCornerRadius(10f)
+            btn.background = bg
+            val padding = 6
+            btn.setPadding(padding, 2, padding, 2)
+            val margin = 4
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            params.setMargins(margin, 0, margin, 0)
+            btn.layoutParams = params
+
+            // 點擊歷史關鍵字 → 直接搜尋
+            btn.setOnClickListener {
+                val searchInput = findViewById<EditText>(R.id.search_input)
+                searchInput.setText(keyword)
+                searchInput.setSelection(keyword.length)
+                performSearch()
+            }
+
+            // 長按歷史關鍵字 → 刪除選項
+            btn.setOnLongClickListener {
+                showHistoryDeleteDialog(keyword)
+                true
+            }
+
+            historyContainer.addView(btn)
+        }
+    }
+
+    private fun showHistoryDeleteDialog(keyword: String) {
+        AlertDialog.Builder(this)
+            .setTitle("刪除搜尋歷史")
+            .setMessage("要刪除「$keyword」嗎？")
+            .setPositiveButton("刪除這個", object : android.content.DialogInterface.OnClickListener {
+                override fun onClick(dialog: android.content.DialogInterface, which: Int) {
+                    removeSearchHistory(keyword)
+                }
+            })
+            .setNeutralButton("刪除全部", object : android.content.DialogInterface.OnClickListener {
+                override fun onClick(dialog: android.content.DialogInterface, which: Int) {
+                    clearAllSearchHistory()
+                }
+            })
+            .setNegativeButton("取消", null)
+            .show()
     }
 }

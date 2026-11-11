@@ -6,35 +6,36 @@
     android:background="#000000"
     android:padding="16dp">
 
-    <!-- 標題 -->
+    <!-- 標題（置中，縮小） -->
     <TextView
         android:id="@+id/app_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/app_name"
-        android:textSize="24sp"
+        android:textSize="18sp"
         android:textColor="#FFFFFF"
         android:textStyle="bold"
-        android:layout_marginBottom="16dp" />
+        android:gravity="center"
+        android:layout_marginBottom="8dp" />
 
-    <!-- 搜尋列（搜尋框 + 搜尋按鈕並排） -->
+    <!-- 搜尋列（搜尋框 + 搜尋按鈕並排，縮小） -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
+        android:layout_marginBottom="4dp">
 
         <!-- 搜尋輸入框 -->
         <EditText
             android:id="@+id/search_input"
             android:layout_width="0dp"
-            android:layout_height="56dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="#333333"
             android:textColor="#FFFFFF"
             android:textColorHint="#999999"
             android:hint="@string/search_hint"
-            android:textSize="18sp"
+            android:textSize="15sp"
             android:singleLine="true"
             android:imeOptions="actionSearch"
             android:inputType="text"
@@ -47,13 +48,13 @@
         <!-- 搜尋按鈕 -->
         <Button
             android:id="@+id/search_button"
-            android:layout_width="80dp"
-            android:layout_height="56dp"
-            android:layout_marginStart="12dp"
+            android:layout_width="64dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="8dp"
             android:background="#FFFFFF"
             android:text="@string/search"
             android:textColor="#000000"
-            android:textSize="16sp"
+            android:textSize="13sp"
             android:textStyle="bold"
             android:focusable="true"
             android:focusableInTouchMode="true" />
@@ -67,10 +68,30 @@
         android:layout_height="wrap_content"
         android:text=""
         android:textColor="#FFD700"
-        android:textSize="16sp"
+        android:textSize="12sp"
         android:gravity="center"
         android:visibility="gone"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="2dp" />
+
+    <!-- 搜尋歷史關鍵字（橫向滾動，無標題） -->
+    <HorizontalScrollView
+        android:id="@+id/history_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="false"
+        android:scrollbars="none"
+        android:layout_marginBottom="2dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/history_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+    </HorizontalScrollView>
 
     <!-- 結果區域（方格顯示） -->
     <GridView
@@ -79,7 +100,7 @@
         android:layout_height="match_parent"
         android:numColumns="auto_fit"
         android:columnWidth="200dp"
-        android:verticalSpacing="16dp"
+        android:verticalSpacing="12dp"
         android:horizontalSpacing="16dp"
         android:stretchMode="columnWidth"
         android:focusable="true"
