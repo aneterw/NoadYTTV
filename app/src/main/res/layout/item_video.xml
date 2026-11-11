@@ -3,7 +3,8 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="4dp">
+    android:padding="4dp"
+    android:id="@+id/video_card_container">
 
     <!-- 縮圖 -->
     <ImageView
@@ -11,7 +12,9 @@
         android:layout_width="180dp"
         android:layout_height="101dp"
         android:scaleType="centerCrop"
-        android:background="#333333"
+        android:background="@drawable/focus_thumbnail_border"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
         android:contentDescription="影片縮圖" />
 
     <!-- 標題 -->
@@ -19,12 +22,14 @@
         android:id="@+id/video_title"
         android:layout_width="180dp"
         android:layout_height="wrap_content"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/focus_title_color"
         android:textSize="14sp"
         android:textStyle="bold"
         android:maxLines="2"
         android:ellipsize="end"
-        android:layout_marginTop="4dp" />
+        android:layout_marginTop="4dp"
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
 
     <!-- 頻道與時間 -->
     <LinearLayout
