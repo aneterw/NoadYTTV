@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
     private var isReturningFromPlayer = false
     private var lastSearchQuery = ""
     private var clearSearchJob: Job? = null
+    private var lastSelectedView: View? = null
 
     // 搜尋歷史（本地持久化）
     private val searchHistory = mutableListOf<String>()
@@ -111,6 +112,27 @@ class MainActivity : ComponentActivity() {
                         resultsGrid.onItemClickListener = android.widget.AdapterView.OnItemClickListener { _, _, position, _ ->
                             val selectedVideo = videos[position]
                             playVideo(selectedVideo, position)
+                        }
+                        resultsGrid.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: android.view.View?, position: Int, id: Long) {
+                                // 將上一個選中的 item 視覺恢復正常
+                                lastSelectedView?.let { prev ->
+                                    val prevTitle = prev.findViewById<TextView>(R.id.video_title)
+                                    val prevThumbnail = prev.findViewById<ImageView>(R.id.video_thumbnail)
+                                    prevTitle.setTextColor(android.graphics.Color.parseColor("#FFFFFF"))
+                                    prevThumbnail.setBackgroundResource(android.R.color.transparent)
+                                }
+                                // 將當前選中的 item 視覺設為焦點狀態
+                                view?.let { curr ->
+                                    val currTitle = curr.findViewById<TextView>(R.id.video_title)
+                                    val currThumbnail = curr.findViewById<ImageView>(R.id.video_thumbnail)
+                                    currTitle.setTextColor(android.graphics.Color.parseColor("#FFD700"))
+                                    currThumbnail.setBackgroundResource(R.drawable.focus_thumbnail_border)
+                                    lastSelectedView = curr
+                                }
+                            }
+
+                            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
                         }
                         searchingText.text = "搜索完成：找到 ${videos.size} 个影片 $lastSearchQuery"
                         searchingText.visibility = android.view.View.VISIBLE
@@ -314,26 +336,31 @@ class MainActivity : ComponentActivity() {
         historyScroll.visibility = android.view.View.VISIBLE
 
         for (keyword in searchHistory) {
+            // 每個歷史關鍵字用一個水平容器包住，讓關鍵字與 X 按鈕緊貼
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            val rowParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            rowParams.setMargins(4, 0, 4, 0)
+            row.layoutParams = rowParams
+
+            // 關鍵字按鈕 → 點擊直接搜尋
             val btn = Button(this)
             btn.text = keyword
             btn.textSize = 12f
             btn.setTextColor(android.graphics.Color.WHITE)
-            // 橢圓形（胶囊）背景，縮小高度
-            val bg = android.graphics.drawable.GradientDrawable()
-            bg.setColor(android.graphics.Color.parseColor("#444444"))
-            bg.setCornerRadius(10f)
-            btn.background = bg
+            btn.setBackgroundResource(R.drawable.focus_history_btn)
             val padding = 6
             btn.setPadding(padding, 2, padding, 2)
-            val margin = 4
-            val params = LinearLayout.LayoutParams(
+            val btnMargin = 4
+            val btnParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            params.setMargins(margin, 0, margin, 0)
-            btn.layoutParams = params
-
-            // 點擊歷史關鍵字 → 直接搜尋
+            btnParams.setMargins(0, 0, 4, 0)
+            btn.layoutParams = btnParams
             btn.setOnClickListener {
                 val searchInput = findViewById<EditText>(R.id.search_input)
                 searchInput.setText(keyword)
@@ -341,31 +368,62 @@ class MainActivity : ComponentActivity() {
                 performSearch()
             }
 
-            // 長按歷史關鍵字 → 刪除選項
-            btn.setOnLongClickListener {
-                showHistoryDeleteDialog(keyword)
-                true
+            // X 刪除按鈕 → 只刪除這個關鍵字（用 TextView 避免 Button 預設最小寬度，支援焦點）
+            val delBtn = TextView(this)
+            delBtn.text = "×"
+            delBtn.textSize = 10f
+            delBtn.setTextColor(android.graphics.Color.WHITE)
+            delBtn.setGravity(android.view.Gravity.CENTER)
+            delBtn.setFocusable(true)
+            delBtn.setFocusableInTouchMode(true)
+            // 焦點變色：深紅色
+            val delBgSelector = android.graphics.drawable.StateListDrawable()
+            val delBgFocused = android.graphics.drawable.GradientDrawable()
+            delBgFocused.setColor(android.graphics.Color.parseColor("#FF5252"))
+            delBgFocused.setCornerRadius(6f)
+            val delBgNormal = android.graphics.drawable.GradientDrawable()
+            delBgNormal.setColor(android.graphics.Color.parseColor("#AA0000"))
+            delBgNormal.setCornerRadius(6f)
+            delBgSelector.addState(intArrayOf(android.R.attr.state_focused), delBgFocused)
+            delBgSelector.addState(intArrayOf(), delBgNormal)
+            delBtn.background = delBgSelector
+            val delPadding = 2
+            delBtn.setPadding(delPadding, 1, delPadding, 1)
+            val delParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            delParams.setMargins(0, 0, 4, 0)
+            delBtn.layoutParams = delParams
+            delBtn.setOnClickListener {
+                removeSearchHistory(keyword)
             }
 
-            historyContainer.addView(btn)
+            row.addView(btn)
+            row.addView(delBtn)
+            historyContainer.addView(row)
         }
-    }
 
-    private fun showHistoryDeleteDialog(keyword: String) {
-        AlertDialog.Builder(this)
-            .setTitle("刪除搜尋歷史")
-            .setMessage("要刪除「$keyword」嗎？")
-            .setPositiveButton("刪除這個", object : android.content.DialogInterface.OnClickListener {
-                override fun onClick(dialog: android.content.DialogInterface, which: Int) {
-                    removeSearchHistory(keyword)
-                }
-            })
-            .setNeutralButton("刪除全部", object : android.content.DialogInterface.OnClickListener {
-                override fun onClick(dialog: android.content.DialogInterface, which: Int) {
-                    clearAllSearchHistory()
-                }
-            })
-            .setNegativeButton("取消", null)
-            .show()
+        // 清除所有歷史按鈕
+        if (searchHistory.isNotEmpty()) {
+            val clearBtn = Button(this)
+            clearBtn.text = "清除所有歷史"
+            clearBtn.textSize = 14f
+            clearBtn.setTextColor(android.graphics.Color.WHITE)
+            clearBtn.setBackgroundResource(R.drawable.focus_history_btn)
+            val padding = 10
+            clearBtn.setPadding(padding, 6, padding, 6)
+            val margin = 12
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            params.setMargins(margin, 0, margin, 0)
+            clearBtn.layoutParams = params
+            clearBtn.setOnClickListener {
+                clearAllSearchHistory()
+            }
+            historyContainer.addView(clearBtn)
+        }
     }
 }
