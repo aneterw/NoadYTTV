@@ -23,14 +23,16 @@ class SettingsActivity : AppCompatActivity() {
     private val KEY_SUBTITLE = "pref_subtitle"
     private val KEY_RESOLUTION = "pref_resolution"
     private val KEY_LANGUAGE = "pref_language"
+    private val KEY_AUTO_PLAY = "pref_auto_play_next"
 
     private lateinit var prefs: SharedPreferences
-    private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=返回主頁
+    private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=自動播放, 4=返回主頁
 
     // 焦點項目引用
     private lateinit var subtitleRow: LinearLayout
     private lateinit var resolutionRow: LinearLayout
     private lateinit var languageRow: LinearLayout
+    private lateinit var autoPlayRow: LinearLayout
     private lateinit var btnBack: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +74,7 @@ class SettingsActivity : AppCompatActivity() {
         subtitleRow = buildSettingRow("字幕", getCurrentSubtitleLabel(), 0)
         resolutionRow = buildSettingRow("解析度", getCurrentResolutionLabel(), 1)
         languageRow = buildSettingRow("介面語言", getCurrentLanguageLabel(), 2)
+        autoPlayRow = buildSettingRow("自動播放下一集", getAutoPlayLabel(), 3)
 
         btnBack = Button(this).apply {
             text = "返回主頁"
@@ -94,6 +97,7 @@ class SettingsActivity : AppCompatActivity() {
         menu.addView(subtitleRow)
         menu.addView(resolutionRow)
         menu.addView(languageRow)
+        menu.addView(autoPlayRow)
         menu.addView(btnBack)
 
         root.addView(menu)
@@ -143,6 +147,7 @@ class SettingsActivity : AppCompatActivity() {
                 0 -> toggleSubtitle()
                 1 -> toggleResolution()
                 2 -> toggleLanguage()
+                3 -> toggleAutoPlay()
             }
         }
 
@@ -154,7 +159,7 @@ class SettingsActivity : AppCompatActivity() {
         val focusColor = Color.parseColor("#FFD700")
         val normalColor = Color.parseColor("#000000")
 
-        val rows = arrayOf(subtitleRow, resolutionRow, languageRow, btnBack)
+        val rows = arrayOf(subtitleRow, resolutionRow, languageRow, autoPlayRow, btnBack)
 
         rows.forEachIndexed { index, view ->
             if (index == currentFocusIndex) {
@@ -199,7 +204,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun moveFocus(delta: Int) {
-        val total = 4  // 字幕, 解析度, 語言, 返回主頁
+        val total = 5  // 字幕, 解析度, 語言, 自動播放, 返回主頁
         currentFocusIndex = (currentFocusIndex + delta + total) % total
         updateFocusVisual()
 
@@ -207,7 +212,8 @@ class SettingsActivity : AppCompatActivity() {
             0 -> subtitleRow.requestFocus()
             1 -> resolutionRow.requestFocus()
             2 -> languageRow.requestFocus()
-            3 -> btnBack.requestFocus()
+            3 -> autoPlayRow.requestFocus()
+            4 -> btnBack.requestFocus()
         }
     }
 
@@ -292,6 +298,16 @@ class SettingsActivity : AppCompatActivity() {
         recreate()
     }
 
+    private fun getAutoPlayLabel(): String {
+        return if (prefs.getBoolean(KEY_AUTO_PLAY, true)) "開" else "關"
+    }
+
+    private fun toggleAutoPlay() {
+        val current = prefs.getBoolean(KEY_AUTO_PLAY, true)
+        prefs.edit().putBoolean(KEY_AUTO_PLAY, !current).apply()
+        recreate()
+    }
+
     private fun goBackToMain() {
         val intent = Intent(this, MainActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -316,7 +332,8 @@ class SettingsActivity : AppCompatActivity() {
                     0 -> toggleSubtitle()
                     1 -> toggleResolution()
                     2 -> toggleLanguage()
-                    3 -> goBackToMain()
+                    3 -> toggleAutoPlay()
+                    4 -> goBackToMain()
                 }
                 return true
             }
