@@ -29,3 +29,6 @@ Thumbs.db
 
 # Python cache
 __pycache__/
+
+# Release keystore (keep secret)
+release.keystore
