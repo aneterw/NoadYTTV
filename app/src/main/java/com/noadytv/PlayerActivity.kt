@@ -48,6 +48,10 @@ class PlayerActivity : ComponentActivity() {
     private val PREF_FILE = "player_settings"
     private val KEY_SUBTITLE = "pref_subtitle"
     private val KEY_RESOLUTION = "pref_resolution"
+    private val KEY_AUTO_PLAY = "pref_auto_play_next"
+
+    // setupEndedListener 用來追蹤 listener 實例
+    private var lastEndListener: androidx.media3.common.Player.Listener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -189,14 +193,26 @@ class PlayerActivity : ComponentActivity() {
                             }
                         }
 
+                        // 掛上播放完畢監聽，供自動播放使用
+                        setupEndedListener(
+                            intent.getStringArrayListExtra("playlist_ids") ?: emptyList(),
+                            intent.getStringArrayListExtra("playlist_titles") ?: emptyList(),
+                            intent.getIntExtra("position", -1)
+                        )
+
+                        // 監聽播放錯誤
                         player?.addListener(object : Player.Listener {
                             override fun onPlayerError(error: PlaybackException) {
+                                android.util.Log.e("NoadYTTV_Player", "player error: code=${error.errorCode} msg=${error.message}")
                                 runOnUiThread {
-                                    val errorCode = error.errorCode
-                                    val errorMessage = error.message ?: "未知錯誤"
+                                    val infoMsg = when (error.errorCode) {
+                                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "網路連線失敗"
+                                            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "解碼器初始化失敗"
+                                            else -> error.message ?: "未知錯誤"
+                                        }
                                     Toast.makeText(
                                         this@PlayerActivity,
-                                        "播放失敗 [錯誤碼：$errorCode]：$errorMessage\\n將返回搜尋結果頁面",
+                                        "播放失敗：$infoMsg，將返回搜尋結果頁面",
                                         Toast.LENGTH_LONG
                                     ).show()
                                     val resultIntent = Intent()
@@ -439,6 +455,114 @@ class PlayerActivity : ComponentActivity() {
         player?.prepare()
         player?.play()
         android.util.Log.d("NoadYTTV_Subtitle", "switchResolution playing ${chosen.height}p ${chosen.protocol}")
+    }
+
+    /** 從播放清單中，從指定 index 開始播放（自動播放下一首專用） */
+    private fun playNextFromPlaylist(playlistIds: List<String>, playlistTitles: List<String>, index: Int) {
+        if (index >= playlistIds.size) return
+        val nextId = playlistIds[index]
+        val nextTitle = playlistTitles.getOrElse(index) { "" }
+        android.util.Log.d("NoadYTTV_AutoPlay", "playing #$index : $nextId ($nextTitle)")
+        
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                val videoInfoResult = viewModel.getVideoInfo(nextId)
+                val result = viewModel.getPlaybackInfo(nextId)
+                if (result.isSuccess) {
+                    val playbackInfo = result.getOrNull()
+                    if (playbackInfo != null && playbackInfo.manifestUrl != null) {
+                        currentVideoInfo = videoInfoResult.getOrNull()
+                        currentPlaybackInfo = playbackInfo
+                        
+                        val prefs = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
+                        val savedSubtitle = prefs.getString(KEY_SUBTITLE, "none") ?: "none"
+                        
+                        var subtitleTrackForMediaItem: com.noadytv.python.SubtitleTrack? = null
+                        if (savedSubtitle != "none" && currentVideoInfo != null) {
+                            val matched = currentVideoInfo!!.subtitles.firstOrNull { it.language == savedSubtitle }
+                                ?: currentVideoInfo!!.subtitles.firstOrNull { sub ->
+                                    sub.language.startsWith(savedSubtitle, ignoreCase = true) ||
+                                        savedSubtitle.startsWith(sub.language, ignoreCase = true)
+                                }
+                            if (matched != null) subtitleTrackForMediaItem = matched
+                        }
+                        
+                        val mediaItem = if (subtitleTrackForMediaItem != null) {
+                            buildMediaItemWithSubtitle(playbackInfo, nextTitle, subtitleTrackForMediaItem)
+                        } else {
+                            buildMediaItem(playbackInfo, nextTitle)
+                        }
+                        
+                        val player = playerController?.getExoPlayer()
+                        player?.setMediaItem(mediaItem)
+                        player?.prepare()
+                        player?.play()
+                        
+                        // 字幕樣式
+                        playerView?.subtitleView?.let { sv ->
+                            sv.setApplyEmbeddedStyles(false)
+                            sv.setApplyEmbeddedFontSizes(false)
+                            sv.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 32f)
+                            sv.setStyle(CaptionStyleCompat(
+                                android.graphics.Color.parseColor("#FFD700"),
+                                android.graphics.Color.parseColor("#0D000000"),
+                                android.graphics.Color.parseColor("#0D000000"),
+                                CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
+                                android.graphics.Color.BLACK, null))
+                        }
+                        
+                        // 解析度切換
+                        val savedResolution = prefs.getString(KEY_RESOLUTION, "auto") ?: "auto"
+                        if (savedResolution != "auto") {
+                            switchResolution(savedResolution.toIntOrNull() ?: 0, nextTitle)
+                        }
+                        
+                        // 再次掛上結束監聽（避免舊 listener 遺失狀態）
+                        setupEndedListener(playlistIds, playlistTitles, index + 1)
+                    } else {
+                        // 這個項目無效，跳過繼續下一個
+                        android.util.Log.w("NoadYTTV_AutoPlay", "No valid URL for #$index: $nextId, skipping")
+                        if (index + 1 < playlistIds.size) {
+                            playNextFromPlaylist(playlistIds, playlistTitles, index + 1)
+                        } else {
+                            runOnUiThread { setResult(RESULT_OK); finish() }
+                        }
+                    }
+                } else {
+                    android.util.Log.e("NoadYTTV_AutoPlay", "Failed to get playback info for #$index: $nextId")
+                    if (index + 1 < playlistIds.size) {
+                        playNextFromPlaylist(playlistIds, playlistTitles, index + 1)
+                    } else {
+                        runOnUiThread { setResult(RESULT_OK); finish() }
+                    }
+                }
+            }
+        }
+    }
+
+    /** 為當前播放器設定「播放完畢後」的動作（供切換影片後重新綁定） */
+    private fun setupEndedListener(playlistIds: List<String>, playlistTitles: List<String>, startIndex: Int) {
+        val player = playerController?.getExoPlayer() ?: return
+        lastEndListener?.let { player.removeListener(it) }
+        lastEndListener = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state != Player.STATE_ENDED) return
+                val autoPlay = getSharedPreferences(PREF_FILE, MODE_PRIVATE).getBoolean(KEY_AUTO_PLAY, true)
+                if (!autoPlay) return
+                var nextPos = startIndex
+                while (nextPos < playlistIds.size && playlistIds[nextPos] == intent.getStringExtra("videoId")) nextPos++
+                if (nextPos < playlistIds.size) {
+                    android.util.Log.d("NoadYTTV_AutoPlay", "listener fired → #$nextPos")
+                    lifecycleScope.launch(Dispatchers.Main) {
+                        playNextFromPlaylist(playlistIds, playlistTitles, nextPos)
+                    }
+                } else {
+                    android.util.Log.d("NoadYTTV_AutoPlay", "listener fired → end of playlist")
+                    runOnUiThread { setResult(RESULT_OK); finish() }
+                }
+            }
+        }
+        player.addListener(lastEndListener!!)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

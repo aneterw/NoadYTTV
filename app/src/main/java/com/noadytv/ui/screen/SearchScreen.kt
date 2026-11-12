@@ -120,7 +120,7 @@ fun SearchScreen(
                         modifier = Modifier.padding(top = 16.dp)
                     )
                     Text(
-                        text = "💡 支援鍵盤文字輸入與語音搜尋，點擊麥克風圖示即可使用語音",
+                        text = "💡 可用鍵盤語音搜尋，效率更高",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
                         modifier = Modifier.padding(top = 24.dp)

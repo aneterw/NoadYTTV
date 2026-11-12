@@ -226,10 +226,15 @@ class MainActivity : ComponentActivity() {
         selectedPosition = position
         Toast.makeText(this, "播放：${video.title}", Toast.LENGTH_SHORT).show()
         isReturningFromPlayer = true
+        val currentVideos = viewModel.searchResults.value
         val intent = Intent(this, com.noadytv.PlayerActivity::class.java)
         intent.putExtra("videoId", video.id)
         intent.putExtra("videoTitle", video.title)
         intent.putExtra("position", position)
+        if (currentVideos.isNotEmpty()) {
+            intent.putStringArrayListExtra("playlist_ids", ArrayList(currentVideos.map { it.id }))
+            intent.putStringArrayListExtra("playlist_titles", ArrayList(currentVideos.map { it.title }))
+        }
         playerActivityLauncher.launch(intent)
     }
 
