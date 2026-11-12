@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaItem.SubtitleConfiguration
@@ -466,12 +467,14 @@ class PlayerActivity : ComponentActivity() {
         
         lifecycleScope.launch {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
-                val videoInfoResult = viewModel.getVideoInfo(nextId)
-                val result = viewModel.getPlaybackInfo(nextId)
+                // 並行抓取影片資訊與播放連結，避免串流請求串行延遲
+                val infoDeferred = async(Dispatchers.IO) { viewModel.getVideoInfo(nextId) }
+                val playDeferred = async(Dispatchers.IO) { viewModel.getPlaybackInfo(nextId) }
+                val result = playDeferred.await()
                 if (result.isSuccess) {
                     val playbackInfo = result.getOrNull()
                     if (playbackInfo != null && playbackInfo.manifestUrl != null) {
-                        currentVideoInfo = videoInfoResult.getOrNull()
+                        currentVideoInfo = infoDeferred.await().getOrNull()
                         currentPlaybackInfo = playbackInfo
                         
                         val prefs = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
