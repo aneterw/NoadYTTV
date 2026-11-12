@@ -67,6 +67,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     @Deprecated("Use getPlaybackInfo for proper DASH support")
     suspend fun getPlaybackUrl(videoId: String) = repository.getPlaybackUrl(videoId)
 
+    // 取得完整影片資訊（含字幕、解析度列表，供設定對話框使用）
+    suspend fun getVideoInfo(videoId: String) = repository.getVideoInfo(videoId)
+
     fun onFocusChange(index: Int) {
         _focusedIndex.value = index
     }
