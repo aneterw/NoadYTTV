@@ -17,7 +17,8 @@ data class VideoSearchResult(
     val channel: String?,
     val channel_id: String?,
     val view_count: Long?,
-    val url: String
+    val url: String,
+    val upload_date: String? = null   // 格式：yyyyMMdd，如 "20241112"
 )
 
 data class VideoFormat(
@@ -42,7 +43,8 @@ data class SubtitleTrack(
     val name: String,
     val url: String?,
     val ext: String,
-    val is_auto: Boolean
+    val is_auto: Boolean,
+    val local_path: String? = null  // 本地快取路徑（若 Python 端已下載）
 )
 
 data class VideoInfo(
@@ -91,6 +93,7 @@ class YouTubePythonBridge private constructor() {
 
     companion object {
         private val INSTANCE = AtomicReference<YouTubePythonBridge?>(null)
+        @JvmField var _lastTargetVideoId: String = ""   // 供 getTargetVideoUrlWeb 使用
 
         fun getInstance(): YouTubePythonBridge {
             return INSTANCE.getAndSet(null)?.also { INSTANCE.set(it) }
@@ -115,7 +118,8 @@ class YouTubePythonBridge private constructor() {
                             channel = obj.optString("channel"),
                             channel_id = obj.optString("channel_id"),
                             view_count = if (obj.has("view_count") && !obj.isNull("view_count")) obj.optLong("view_count", -1).takeIf { it > 0 } else null,
-                            url = obj.optString("url")
+                            url = obj.optString("url"),
+                            upload_date = if (obj.has("upload_date") && !obj.isNull("upload_date")) obj.optString("upload_date") else null
                         )
                     )
                 }
@@ -168,7 +172,8 @@ class YouTubePythonBridge private constructor() {
                                 name = s.optString("name"),
                                 url = s.optString("url"),
                                 ext = s.optString("ext"),
-                                is_auto = false
+                                is_auto = false,
+                                local_path = if (s.has("local_path") && !s.isNull("local_path")) s.optString("local_path") else null
                             )
                         )
                     }
@@ -446,4 +451,53 @@ class YouTubePythonBridge private constructor() {
         val info = getBestPlaybackInfo(videoInfo)
         return info.singleFileUrl ?: info.videoUrl ?: info.audioUrl
     }
+
+    suspend fun downloadSubtitleToFilePath(videoId: String, lang: String): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val result = module.callAttr("download_subtitle_to_file", videoId, lang).toString()
+                Result.success(result)
+            } catch (e: Exception) {
+                Log.e("YouTubePythonBridge", "downloadSubtitleToFilePath error: ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
+
+    /** 用 yt-dlp format selector 精確取得目標高度影片 URL */
+    suspend fun getTargetVideoUrl(videoId: String, maxHeight: Int): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = module.callAttr("get_target_video_url", videoId, maxHeight).toString().trim()
+                Log.d("YouTubePythonBridge", "getTargetVideoUrl: $videoId h=$maxHeight url_len=${url.length}")
+                if (url.isNotEmpty()) Result.success(url) else Result.failure(IllegalStateException("No URL found for height $maxHeight"))
+            } catch (e: Exception) {
+                Log.e("YouTubePythonBridge", "getTargetVideoUrl error: ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
+
+    /** 用 web client 精確取得指定高度的 progressive URL（當 android_tv_embedded 只給 adaptive manifest 時 fallback） */
+    suspend fun getTargetVideoUrlWeb(): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val id = Companion._lastTargetVideoId
+                if (id.isEmpty()) return@withContext Result.failure(IllegalStateException("No target video ID set"))
+                val url = module.callAttr("get_target_video_url_web").toString().trim()
+                Log.d("YouTubePythonBridge", "getTargetVideoUrlWeb: $id url_len=${url.length}")
+                if (url.isNotEmpty()) Result.success(url) else Result.failure(IllegalStateException("No progressive URL from web client"))
+            } catch (e: Exception) {
+                Log.e("YouTubePythonBridge", "getTargetVideoUrlWeb error: ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
+
+    /** 在呼叫 getTargetVideoUrl 前設定，供 web client fallback 使用 */
+    fun setLastTargetVideoId(id: String) {
+        Companion._lastTargetVideoId = id
+        Log.d("YouTubePythonBridge", "setLastTargetVideoId: $id")
+    }
 }
+

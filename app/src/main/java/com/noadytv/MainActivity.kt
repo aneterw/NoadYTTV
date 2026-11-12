@@ -92,6 +92,13 @@ class MainActivity : ComponentActivity() {
         val resultsGrid = findViewById<GridView>(R.id.results_grid)
         val searchingText = findViewById<TextView>(R.id.searching_text)
 
+        // 設定按鈕點擊 → 開啟設定頁面
+        val settingsBtn = findViewById<ImageView>(R.id.settings_btn)
+        settingsBtn.setOnClickListener {
+            val intent = Intent(this, com.noadytv.settings.SettingsActivity::class.java)
+            startActivity(intent)
+        }
+
         // 观察搜索结果
         lifecycleScope.launch {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
@@ -266,6 +273,8 @@ class MainActivity : ComponentActivity() {
             }
             duration.text = durationText
 
+            // 上傳日期（相對時間：幾秒前/幾分鐘前/幾小時前/幾天前/幾個月前/幾年前）
+
             // 载入缩图（使用 Coil）
             video.thumbnail?.let { url ->
                 imageLoader.enqueue(ImageRequest.Builder(context)
@@ -426,4 +435,5 @@ class MainActivity : ComponentActivity() {
             historyContainer.addView(clearBtn)
         }
     }
+
 }

@@ -6,17 +6,43 @@
     android:background="#000000"
     android:padding="16dp">
 
-    <!-- 標題（置中，縮小） -->
-    <TextView
-        android:id="@+id/app_title"
+    <!-- 標題與設定按鈕（標題左，設定右） -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/app_name"
-        android:textSize="18sp"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"
+        android:orientation="horizontal"
         android:gravity="center"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="8dp">
+
+        <!-- 標題 -->
+        <TextView
+            android:id="@+id/app_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- 設定按鈕（右上角，圖示風格，背景透明融入表頭） -->
+        <ImageView
+            android:id="@+id/settings_btn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_settings"
+            android:contentDescription="設定"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:background="@android:color/transparent"
+            android:padding="4dp"
+            android:layout_marginEnd="4dp" />
+    </LinearLayout>
 
     <!-- 搜尋列（搜尋框 + 搜尋按鈕並排，縮小） -->
     <LinearLayout
