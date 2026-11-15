@@ -67,11 +67,13 @@ class MainActivity : ComponentActivity() {
         if (result.resultCode == RESULT_OK) {
             val position = result.data?.getIntExtra("position", selectedPosition) ?: selectedPosition
             if (position >= 0) {
-                // 恢復焦點到原來的影片位置
+                // 恢復焦點到原來的影片位置（延遲執行確保 GridView 已布局）
                 val resultsGrid = findViewById<GridView>(R.id.results_grid)
-                resultsGrid.setSelection(position)
-                resultsGrid.requestFocusFromTouch()
-                resultsGrid.requestFocus()
+                resultsGrid.post {
+                    resultsGrid.setSelection(position)
+                    resultsGrid.requestFocusFromTouch()
+                    resultsGrid.requestFocus()
+                }
             } else {
                 // 沒有位置可恢復時，焦點回到搜尋框
                 findViewById<EditText>(R.id.search_input).requestFocus()
@@ -155,10 +157,12 @@ class MainActivity : ComponentActivity() {
                         
                         // 如果是從 PlayerActivity 返回，恢復焦點
                         if (isReturningFromPlayer && selectedPosition >= 0) {
-                            resultsGrid.setSelection(selectedPosition)
-                            resultsGrid.requestFocusFromTouch()
-                            resultsGrid.requestFocus()
-                            isReturningFromPlayer = false
+                            resultsGrid.post {
+                                resultsGrid.setSelection(selectedPosition)
+                                resultsGrid.requestFocusFromTouch()
+                                resultsGrid.requestFocus()
+                                isReturningFromPlayer = false
+                            }
                         }
                     }
                 }
