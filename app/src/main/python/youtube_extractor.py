@@ -300,18 +300,41 @@ class YouTubeExtractor:
                     _add_timedtext(lang, subs, is_auto_src=lang in (auto_captions or {}), video_id=video_id)
                     if tracks:
                         return tracks
-            # Step B: YTA(want) — 只抓一次，用指定語言，不按優先順序
-            path = _fetch_yta(want)
-            if path:
-                tracks.append({
-                    'language': want,
-                    'name': f"{want} (自動)",
-                    'url': '',
-                    'local_path': path,
-                    'ext': 'vtt',
-                    'is_auto': True,
-                })
-                return tracks
+            # Step B: YTA(want) — 獲取可用語言，匹配指定語言後下載，建 VTT 儲存 /sdcard/Download/
+            try:
+                from youtube_transcript_api import YouTubeTranscriptApi
+                yta = YouTubeTranscriptApi()
+                transcript_list = yta.list(video_id)  # 獲取所有可用轉錄
+                available = list(transcript_list)
+                chosen = None
+                for t in available:
+                    if _matches(t.language_code, want):
+                        chosen = t
+                        break
+                if not chosen and available:
+                    chosen = available[0]  # 指定語言不可用，使用第一個可用語言
+                if chosen:
+                    detected_lang = chosen.language_code
+                    result = chosen.fetch()  # 下載該語言字幕
+                    entries = result.to_raw_data()  # 新版 API: FetchedTranscript → list of dict
+                    if entries:
+                        vtt_content = self._build_vtt_from_entries(entries, detected_lang)
+                        if vtt_content:
+                            vtt_path = os.path.join('/sdcard/Download', f"sub_{video_id}_{detected_lang}.vtt")
+                            with open(vtt_path, 'w', encoding='utf-8-sig') as f:
+                                f.write(vtt_content)
+                            tracks.append({
+                                'language': detected_lang,
+                                'name': f"{detected_lang} (YTA)",
+                                'url': '',
+                                'local_path': vtt_path,
+                                'ext': 'vtt',
+                                'is_auto': True,
+                            })
+                            logger.info(f"[Subtitle] YTA HIT [{detected_lang}] for [{video_id}] path={vtt_path}")
+                            return tracks
+            except Exception as e:
+                logger.warning(f"[Subtitle] YTA targeted download failed: {e}")
             return tracks
 
         # ── Auto mode ──
