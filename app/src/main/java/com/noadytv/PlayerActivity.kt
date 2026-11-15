@@ -557,7 +557,7 @@ class PlayerActivity : ComponentActivity() {
                         if (index + 1 < playlistIds.size) {
                             playNextFromPlaylist(playlistIds, playlistTitles, index + 1)
                         } else {
-                            runOnUiThread { setResult(RESULT_OK); finish() }
+                            runOnUiThread { setResult(RESULT_OK, Intent().putExtra("position", intent.getIntExtra("position", -1))); finish() }
                         }
                     }
                 } else {
@@ -565,7 +565,7 @@ class PlayerActivity : ComponentActivity() {
                     if (index + 1 < playlistIds.size) {
                         playNextFromPlaylist(playlistIds, playlistTitles, index + 1)
                     } else {
-                        runOnUiThread { setResult(RESULT_OK); finish() }
+                        runOnUiThread { setResult(RESULT_OK, Intent().putExtra("position", intent.getIntExtra("position", -1))); finish() }
                     }
                 }
             }
@@ -590,7 +590,7 @@ class PlayerActivity : ComponentActivity() {
                     }
                 } else {
                     android.util.Log.d("NoadYTTV_AutoPlay", "listener fired → end of playlist")
-                    runOnUiThread { setResult(RESULT_OK); finish() }
+                    runOnUiThread { setResult(RESULT_OK, Intent().putExtra("position", intent.getIntExtra("position", -1))); finish() }
                 }
             }
         }
