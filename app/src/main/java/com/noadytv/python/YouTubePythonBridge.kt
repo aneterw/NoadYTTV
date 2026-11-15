@@ -102,7 +102,7 @@ class YouTubePythonBridge private constructor() {
         }
     }
 
-    suspend fun searchVideos(query: String, maxResults: Int = 40): Result<List<VideoSearchResult>> {
+    suspend fun searchVideos(query: String, maxResults: Int = 60): Result<List<VideoSearchResult>> {
         return withContext(Dispatchers.IO) {
             try {
                 val result = module.callAttr("search_videos", query, maxResults).toString()
