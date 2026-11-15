@@ -79,15 +79,19 @@ class SettingsActivity : AppCompatActivity() {
         btnBack = Button(this).apply {
             text = "返回主頁"
             textSize = 14f
-            setTextColor(Color.BLACK)
+            setTextColor(Color.WHITE)
             setPadding(24, 8, 24, 8)
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#FFD700"))
+                setColor(Color.parseColor("#333333"))
                 setCornerRadius(8f)
             }
             setAllCaps(false)
             setFocusable(true)
             setFocusableInTouchMode(true)
+            setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) currentFocusIndex = 4
+                updateFocusVisual()
+            }
             setOnClickListener {
                 goBackToMain()
             }
@@ -119,6 +123,9 @@ class SettingsActivity : AppCompatActivity() {
         row.setPadding(0, 12, 0, 12)
         row.setFocusable(true)
         row.setFocusableInTouchMode(true)
+        row.descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        // 初始背景：深色
+        row.background = makeRowBg(false)
 
         val labelView = TextView(this).apply {
             text = label
@@ -141,6 +148,12 @@ class SettingsActivity : AppCompatActivity() {
         row.addView(labelView)
         row.addView(valueView)
 
+        // 焦點變化時更新背景視覺（黃色高亮）
+        row.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) currentFocusIndex = index
+            updateFocusVisual()
+        }
+
         // 點擊切換
         row.setOnClickListener {
             when (index) {
@@ -154,48 +167,35 @@ class SettingsActivity : AppCompatActivity() {
         return row
     }
 
-    // 更新焦點視覺：當前焦點項目背景變亮
-    private fun updateFocusVisual() {
-        val focusColor = Color.parseColor("#FFD700")
-        val normalColor = Color.parseColor("#000000")
+    // 建立 row 背景 drawable
+    private fun makeRowBg(focused: Boolean): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(if (focused) Color.parseColor("#FFD700") else Color.parseColor("#1a1a1a"))
+            setCornerRadius(8f)
+        }
+    }
 
+    // 更新焦點視覺：當前焦點項目背景變亮黃
+    private fun updateFocusVisual() {
         val rows = arrayOf(subtitleRow, resolutionRow, languageRow, autoPlayRow, btnBack)
 
         rows.forEachIndexed { index, view ->
-            if (index == currentFocusIndex) {
-                // 焦點項目：背景變亮黃
-                if (view is Button) {
-                    (view.background as GradientDrawable).setColor(focusColor)
-                    view.setTextColor(Color.BLACK)
-                } else {
-                    view.setBackgroundColor(focusColor)
-                    // 子文字變黑
-                    for (i in 0 until (view as LinearLayout).childCount) {
-                        val child = (view as LinearLayout).getChildAt(i)
-                        if (child is TextView) {
-                            child.setTextColor(Color.BLACK)
-                        }
-                    }
-                }
+            val isFocused = index == currentFocusIndex
+            view.background = makeRowBg(isFocused)
+
+            if (view is Button) {
+                view.setTextColor(if (isFocused) Color.BLACK else Color.WHITE)
             } else {
-                // 非焦點項目：背景黑
-                if (view is Button) {
-                    (view.background as GradientDrawable).setColor(Color.parseColor("#FFD700"))
-                    view.setTextColor(Color.BLACK)
-                } else {
-                    view.setBackgroundColor(normalColor)
-                    for (i in 0 until (view as LinearLayout).childCount) {
-                        val child = (view as LinearLayout).getChildAt(i)
-                        if (child is TextView) {
-                            when (child) {
-                                is TextView -> {
-                                    if ((view as LinearLayout).indexOfChild(child) == 0) {
-                                        child.setTextColor(Color.WHITE)  // label
-                                    } else {
-                                        child.setTextColor(Color.parseColor("#FFD700"))  // value
-                                    }
-                                }
-                            }
+                // LinearLayout：子文字顏色隨焦點切換
+                for (i in 0 until (view as LinearLayout).childCount) {
+                    val child = (view as LinearLayout).getChildAt(i)
+                    if (child is TextView) {
+                        if ((view as LinearLayout).indexOfChild(child) == 0) {
+                            // label：焦點時黑色，非焦點時白色
+                            child.setTextColor(if (isFocused) Color.BLACK else Color.WHITE)
+                        } else {
+                            // value：焦點時黑色，非焦點時黃色
+                            child.setTextColor(if (isFocused) Color.BLACK else Color.parseColor("#FFD700"))
                         }
                     }
                 }
@@ -220,6 +220,7 @@ class SettingsActivity : AppCompatActivity() {
     // 字幕語言列表（循環切換）
     private val SUBTITLE_LANGS = listOf(
         "none" to "不顯示字幕",
+        "auto" to "自動偵測",
         "zh-Hant" to "繁體中文",
         "zh-Hans" to "简体中文",
         "en" to "英文",

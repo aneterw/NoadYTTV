@@ -74,6 +74,8 @@ class MainActivity : ComponentActivity() {
                 resultsGrid.requestFocus()
             }
         }
+        // 確保搜尋框始終有焦點，方便繼續搜索
+        findViewById<EditText>(R.id.search_input).requestFocus()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,6 +99,10 @@ class MainActivity : ComponentActivity() {
         settingsBtn.setOnClickListener {
             val intent = Intent(this, com.noadytv.settings.SettingsActivity::class.java)
             startActivity(intent)
+        }
+        // 設定按鈕焦點高亮：方向鍵 focus 時背景變黃
+        settingsBtn.setOnFocusChangeListener { _, hasFocus ->
+            settingsBtn.setBackgroundColor(if (hasFocus) Color.parseColor("#FFD700") else Color.TRANSPARENT)
         }
 
         // 观察搜索结果
@@ -218,6 +224,7 @@ class MainActivity : ComponentActivity() {
             clearSearchJob = CoroutineScope(Dispatchers.Main).launch {
                 delay(500)
                 searchInput.setText("")
+                searchInput.requestFocus()
             }
         }
     }
@@ -337,6 +344,8 @@ class MainActivity : ComponentActivity() {
         searchHistory.clear()
         saveSearchHistory()
         showSearchHistory()
+        val searchInput = findViewById<EditText>(R.id.search_input)
+        searchInput.requestFocus()
     }
 
     private fun showSearchHistory() {
@@ -379,6 +388,7 @@ class MainActivity : ComponentActivity() {
                 val searchInput = findViewById<EditText>(R.id.search_input)
                 searchInput.setText(keyword)
                 searchInput.setSelection(keyword.length)
+                searchInput.requestFocus()
                 performSearch()
             }
 
@@ -411,6 +421,8 @@ class MainActivity : ComponentActivity() {
             delBtn.layoutParams = delParams
             delBtn.setOnClickListener {
                 removeSearchHistory(keyword)
+                val searchInput = findViewById<EditText>(R.id.search_input)
+                searchInput.requestFocus()
             }
 
             row.addView(btn)

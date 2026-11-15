@@ -23,12 +23,12 @@ class YouTubeRepository private constructor() {
         }
     }
 
-    suspend fun getVideoInfo(videoId: String): Result<VideoInfo> {
+    suspend fun getVideoInfo(videoId: String, subtitlePref: String = "none"): Result<VideoInfo> {
         // Return cached result if available
         videoCache[videoId]?.let { return Result.success(it) }
 
         return try {
-            val result = bridge.getVideoInfo(videoId)
+            val result = bridge.getVideoInfo(videoId, subtitlePref)
             result.onSuccess { videoInfo ->
                 videoCache[videoId] = videoInfo
             }
@@ -41,8 +41,8 @@ class YouTubeRepository private constructor() {
     /**
      * Get best playback info for adaptive streaming (DASH) - always fetch fresh from yt-dlp for latest token
      */
-    suspend fun getPlaybackInfo(videoId: String): Result<PlaybackInfo> {
-        return getVideoInfo(videoId).map { videoInfo ->
+    suspend fun getPlaybackInfo(videoId: String, subtitlePref: String = "none"): Result<PlaybackInfo> {
+        return getVideoInfo(videoId, subtitlePref).map { videoInfo ->
             val playbackInfo = bridge.getBestPlaybackInfo(videoInfo)
             if (playbackInfo.singleFileUrl == null && playbackInfo.videoUrl == null && playbackInfo.audioUrl == null) {
                 throw IllegalStateException("No playable format found")

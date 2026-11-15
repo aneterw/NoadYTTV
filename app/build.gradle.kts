@@ -64,6 +64,7 @@ chaquopy {
         pip {
             install("yt-dlp")
             install("requests")
+            install("youtube-transcript-api")
         }
     }
 }

@@ -80,12 +80,15 @@ class PlayerController(
         _showControls.value = false
         _error.value = null
 
+        val savedSubtitle = context.getSharedPreferences("noadytv_prefs", Context.MODE_PRIVATE)
+            .getString("pref_subtitle", "none") ?: "none"
+
         scope.launch {
             _currentVideo.value = videoId
             try {
-                val result = repository.getVideoInfo(videoId)
+                val result = repository.getVideoInfo(videoId, savedSubtitle)
                 result.onSuccess { videoInfo ->
-                    val playbackResult = repository.getPlaybackInfo(videoId)
+                    val playbackResult = repository.getPlaybackInfo(videoId, savedSubtitle)
                     playbackResult.onSuccess { playbackInfo ->
                         _playbackInfo.value = playbackInfo
                         loadMedia(playbackInfo, videoInfo.title)

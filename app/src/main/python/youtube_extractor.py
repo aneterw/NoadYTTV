@@ -110,8 +110,9 @@ class YouTubeExtractor:
         except:
             return None
 
-    def extract_video_info(self, video_id: str) -> Optional[Dict[str, Any]]:
+    def extract_video_info(self, video_id: str, preferred_lang: str = "none") -> Optional[Dict[str, Any]]:
         """Extract detailed video info including streams"""
+        self._current_video_id = video_id
         try:
             # 先用基礎選項獲取基本資訊判斷是否為直播
             with yt_dlp.YoutubeDL(self.base_opts) as ydl:
@@ -134,7 +135,8 @@ class YouTubeExtractor:
             formats = self._filter_formats(result.get('formats', []), is_live)
             subtitles = self._extract_subtitles(
                 result.get('subtitles', {}),
-                result.get('automatic_captions', {})
+                result.get('automatic_captions', {}),
+                preferred_lang
             )
 
             # 處理 duration：直播時為 null，不強制轉 int
@@ -144,6 +146,9 @@ class YouTubeExtractor:
                     duration = int(duration)
                 except (ValueError, TypeError):
                     duration = None
+
+            # 計算 resolved_language（供 auto 模式使用，取 tracks 中第一個軌道語言）
+            resolved_lang = subtitles[0]['language'] if subtitles else ''
 
             return {
                 'id': result.get('id', video_id),
@@ -159,6 +164,7 @@ class YouTubeExtractor:
                 'formats': formats,
                 'subtitles': subtitles,
                 'is_live': is_live,
+                'resolved_language': resolved_lang,
             }
         except Exception as e:
             logger.error(f"Extract video info error: {e}")
@@ -213,59 +219,174 @@ class YouTubeExtractor:
             print(f"[DEBUG]   fmt={f['format_id']} h={f['height']} tbr={f['tbr']} vcodec={f['vcodec']} proto={f['protocol']} manifest={bool(f.get('manifest_url'))}")
         return filtered
 
-    def _extract_subtitles(self, subtitles: Dict, auto_captions: Dict) -> List[Dict]:
-        """Extract subtitle tracks - download VTT to local cache for reliability"""
+    def _extract_subtitles(self, subtitles: Dict, auto_captions: Dict, preferred_lang: str = "none") -> List[Dict]:
+        """Extract subtitle tracks per new user rule:
+
+        Targeted (preferred_lang != auto/none):
+          timedtext(want) → YTA(want) [只抓一次] → none
+
+        Auto:
+          YTA probe (無語言參數, 只抓一次, 偵測實際語言) → timedtext(detected 語言) → none
+        """
         import os
-        tracks = []
+        tracks: List[Dict] = []
         cache_dir = self._get_cache_dir()
+        video_id = getattr(self, '_current_video_id', '')
 
-        for lang, subs in subtitles.items():
+        def _lang_key(lang: str) -> str:
+            return (lang or '').lower().split('-')[0]
+
+        def _matches(lang: str, want: str) -> bool:
+            lk = _lang_key(lang)
+            wk = _lang_key(want)
+            return lk == wk or lk.startswith(wk) or wk.startswith(lk)
+
+        # 合併 subtitles（手動）和 auto_captions（自動生成）為統一來源
+        all_captions: Dict[str, List[Dict]] = {}
+        for lang, subs in (subtitles or {}).items():
+            all_captions.setdefault(lang, []).extend(subs)
+        for lang, subs in (auto_captions or {}).items():
+            all_captions.setdefault(lang, []).extend(subs)
+
+        def _add_timedtext(lang: str, subs: List[Dict], is_auto_src: bool, video_id: str):
+            """Download+cache timedtext VTT for one language."""
             for sub in subs:
                 sub_url = sub.get('url', '')
+                if not sub_url:
+                    continue
                 sub_url_vtt = self._convert_subtitle_fmt_to_vtt(sub_url)
-                local_path = self._download_and_cache_vtt(sub_url_vtt, f"sub_{lang}.vtt", cache_dir)
-                tracks.append({
-                    'language': lang,
-                    'name': sub.get('name', lang),
-                    'url': sub_url_vtt,
-                    'local_path': local_path,
-                    'ext': 'vtt',
-                    'is_auto': False,
-                })
+                local_path = self._download_and_cache_vtt(sub_url_vtt, f"sub_{video_id}_{lang}.vtt", cache_dir)
+                if local_path:
+                    tracks.append({
+                        'language': lang,
+                        'name': sub.get('name', lang),
+                        'url': sub_url_vtt,
+                        'local_path': local_path,
+                        'ext': 'vtt',
+                        'is_auto': is_auto_src,
+                    })
+                    return  # 只取第一個有效 sub
+                # 不是 VTT（可能是 M3U8），不添加軌道
 
-        source_langs_added = set()
+        def _fetch_yta(lang: str) -> Optional[str]:
+            """YouTubeTranscriptApi for one language. Returns local VTT path or None."""
+            if not video_id:
+                return None
+            try:
+                from youtube_transcript_api import YouTubeTranscriptApi
+                yta = YouTubeTranscriptApi()
+                result = yta.fetch(video_id, languages=[lang])
+                entries = result.to_raw_data()  # 新版 API: FetchedTranscript → list of dict
+                if not entries:
+                    return None
+                vtt_content = self._build_vtt_from_entries(entries, lang)
+                if not vtt_content:
+                    return None
+                vtt_path = os.path.join(cache_dir, f"sub_auto_{video_id}_{lang}.vtt")
+                with open(vtt_path, 'w', encoding='utf-8') as f:
+                    f.write(vtt_content)
+                logger.info(f"[Subtitle] YTA HIT [{lang}] for [{video_id}]")
+                return vtt_path
+            except Exception as e:
+                logger.warning(f"[Subtitle] YTA [{lang}] failed: {e}, trying JSON3 fallback")
+                return self._fetch_yta_json3(lang)
 
-        for lang, subs in auto_captions.items():
-            for sub in subs:
-                sub_url = sub.get('url', '')
-                sub_url_vtt = self._convert_subtitle_fmt_to_vtt(sub_url)
-                local_path = self._download_and_cache_vtt(sub_url_vtt, f"sub_auto_{lang}.vtt", cache_dir)
+        # ── Targeted mode ──
+        if preferred_lang and preferred_lang not in ("none", "auto"):
+            want = preferred_lang.strip()
+            # Step A: timedtext(want) — 從 subtitles + auto_captions 中匹配指定語言
+            for lang, subs in all_captions.items():
+                if _matches(lang, want):
+                    _add_timedtext(lang, subs, is_auto_src=lang in (auto_captions or {}), video_id=video_id)
+                    if tracks:
+                        return tracks
+            # Step B: YTA(want) — 只抓一次，用指定語言，不按優先順序
+            path = _fetch_yta(want)
+            if path:
                 tracks.append({
-                    'language': lang,
-                    'name': f"{sub.get('name', lang)} (自動)",
-                    'url': sub_url_vtt,
-                    'local_path': local_path,
+                    'language': want,
+                    'name': f"{want} (自動)",
+                    'url': '',
+                    'local_path': path,
                     'ext': 'vtt',
                     'is_auto': True,
                 })
-                m = re.search(r'[?&]lang=([^&]+)', sub_url)
-                if m:
-                    source_lang = m.group(1)
-                    if source_lang != lang and source_lang not in source_langs_added:
-                        source_langs_added.add(source_lang)
-                        tracks.append({
-                            'language': source_lang,
-                            'name': f"{source_lang} (源語言/自動)",
-                            'url': sub_url_vtt,
-                            'local_path': local_path,
-                            'ext': 'vtt',
-                            'is_auto': True,
-                        })
+                return tracks
+            return tracks
 
+        # ── Auto mode ──
+        if preferred_lang == "auto":
+            # Step A: YTA probe — 只抓一次，偵測實際語言
+            detected_lang: Optional[str] = None
+            try:
+                from youtube_transcript_api import YouTubeTranscriptApi
+                yta = YouTubeTranscriptApi()
+                result = yta.fetch(video_id)  # 不指定語言，讓 YTA 返回可用字幕
+                entries = result.to_raw_data()  # 新版 API: FetchedTranscript → list of dict
+                if entries:
+                    detected_lang = (getattr(result, 'language_code', None)
+                                     or getattr(result, 'language', None)
+                                     or 'en')
+                    logger.info(f"[Subtitle] YTA PROBE detected [{detected_lang}] for [{video_id}]")
+            except Exception as e:
+                logger.warning(f"[Subtitle] YTA PROBE failed: {e}, trying JSON3 fallback")
+                # JSON3 fallback probe
+                try:
+                    import json as _json
+                    import urllib.request
+                    import urllib.error
+                    for probe_lang in ['en', 'ja']:
+                        try:
+                            json3_url = f"https://www.youtube.com/api/timedtext?v={video_id}&lang={probe_lang}&fmt=json3"
+                            req = urllib.request.Request(json3_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            try:
+                                with urllib.request.urlopen(req, timeout=15) as resp:
+                                    status = resp.getcode()
+                                    raw = resp.read().decode('utf-8', errors='replace')
+                                logger.info(f"[Subtitle] JSON3 PROBE [{probe_lang}] HTTP {status} for [{video_id}], body={raw[:200]}")
+                            except urllib.error.HTTPError as he:
+                                logger.warning(f"[Subtitle] JSON3 PROBE [{probe_lang}] HTTPError code={he.code} for [{video_id}], body={he.read().decode('utf-8', errors='replace')[:200]}")
+                                continue
+                            except urllib.error.URLError as ue:
+                                logger.warning(f"[Subtitle] JSON3 PROBE [{probe_lang}] URLError reason={ue.reason} for [{video_id}]")
+                                continue
+                            data = _json.loads(raw)
+                            events = data.get('events', [])
+                            if events:
+                                detected_lang = probe_lang
+                                logger.info(f"[Subtitle] JSON3 PROBE detected [{detected_lang}] for [{video_id}]")
+                                break
+                        except Exception as e3:
+                            logger.warning(f"[Subtitle] JSON3 PROBE [{probe_lang}] exception: {type(e3).__name__}: {e3}")
+                            continue
+                except Exception as e2:
+                    logger.warning(f"[Subtitle] JSON3 PROBE failed: {e2}")
+
+            # Step B: timedtext(detected) — 依據偵測到的語言抓 timedtext
+            if detected_lang:
+                for lang, subs in all_captions.items():
+                    if _matches(lang, detected_lang):
+                        _add_timedtext(lang, subs, is_auto_src=lang in (auto_captions or {}), video_id=video_id)
+                        if tracks:
+                            return tracks
+
+            # Step C: timedtext[priority en, ja] — YTA probe 失敗或 detected timedtext 無結果，按優先順序
+            if not tracks:
+                for fb in ['en', 'ja']:
+                    for lang, subs in all_captions.items():
+                        if _matches(lang, fb):
+                            _add_timedtext(lang, subs, is_auto_src=lang in (auto_captions or {}), video_id=video_id)
+                            if tracks:
+                                return tracks
+
+            return tracks
+
+        # ── "none" mode ──
         return tracks
 
     def _get_cache_dir(self) -> str:
         """Get app cache directory for storing downloaded subtitles"""
+        import os
         try:
             from jnius import autoclass
             Activity = autoclass('android.app.Activity')
@@ -279,21 +400,63 @@ class YouTubeExtractor:
             pass
         return '/sdcard/Download'
 
+    def _build_vtt_from_entries(self, entries, lang: str) -> Optional[str]:
+        """Build VTT content from YouTubeTranscriptApi entries (new API: list of dict via to_raw_data)."""
+        import os
+        try:
+            if not entries:
+                return None
+            vtt_lines = ['WEBVTT\n\n']
+            for entry in entries:
+                # entries from to_raw_data() are dicts: {'start': float, 'duration': float, 'text': str}
+                if isinstance(entry, dict):
+                    start = entry.get('start', 0)
+                    duration = entry.get('duration', 2.0)
+                    text = entry.get('text', '')
+                else:
+                    # Fallback for object-style entries
+                    start = getattr(entry, 'start', 0)
+                    duration = getattr(entry, 'duration', 2.0)
+                    text = getattr(entry, 'text', '')
+                if not text:
+                    continue
+                start_ts = self._ms_to_vtt_ts(int(start * 1000))
+                end_ts = self._ms_to_vtt_ts(int((start + duration) * 1000))
+                vtt_lines.append(f'{start_ts} --> {end_ts}\n{text}\n\n')
+            vtt_content = ''.join(vtt_lines)
+            if len(vtt_lines) <= 1:
+                return None
+            return vtt_content
+        except Exception as e:
+            logger.warning(f"[Subtitle] _build_vtt_from_entries failed: {e}")
+            return None
+
     def _download_and_cache_vtt(self, url: str, filename: str, cache_dir: str) -> Optional[str]:
         """Download VTT subtitle content and save to local cache with centered alignment."""
+        import os
         import urllib.request
         try:
             filepath = os.path.join(cache_dir, filename)
+            # 如果舊緩存存在，先驗證是否為真正的 VTT；若不是（如舊 M3U8），刪除重新下載
             if os.path.exists(filepath):
-                return filepath
+                with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                    head = f.read(200)
+                if head.strip().startswith('WEBVTT'):
+                    return filepath
+                os.remove(filepath)
+                logger.warning(f"[Subtitle] Removed stale non-VTT cache: {filepath}")
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=15) as resp:
                 raw = resp.read().decode('utf-8', errors='replace')
+            # 只有真正的 VTT（以 WEBVTT 開頭）才緩存；YouTube timedtext 對自動字幕常返回 M3U8（#EXTM3U），跳過
+            if not raw.strip().startswith('WEBVTT'):
+                logger.warning(f"[Subtitle] Not VTT content (starts with: {raw.strip()[:40]}...), skipping cache")
+                return None
             # 把 YouTube 預設的靠左對齊改成置中 + 底部
             fixed = (raw
                      .replace('align:start position:0%', 'align:center position:50%')
                      .replace('align:start', 'align:center'))
-            # 移除所有 <span ...>...</span> HTML tag（YouTube 常用 <span bg="black"> 產生黑底）
+            # 移除所有 <span ...>...</span> HTML tag
             fixed = re.sub(r'<[^>]+>', '', fixed)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(fixed)
@@ -302,6 +465,70 @@ class YouTubeExtractor:
         except Exception as e:
             logger.error(f"Download/cache VTT failed: {e}")
             return None
+
+    def _fetch_yta_json3(self, lang: str) -> Optional[str]:
+        """YouTubeTranscriptApi replacement: fetch auto captions via timedtext fmt=json3.
+        Returns local VTT path or None. No extra Python module needed."""
+        import os
+        import json as _json
+        import urllib.request
+        import urllib.error
+        video_id = getattr(self, '_current_video_id', '')
+        if not video_id:
+            return None
+        try:
+            # YouTube timedtext JSON3 endpoint for auto captions
+            json3_url = (f"https://www.youtube.com/api/timedtext"
+                         f"?v={video_id}&lang={lang}&fmt=json3")
+            req = urllib.request.Request(json3_url, headers={'User-Agent': 'Mozilla/5.0'})
+            try:
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    status = resp.getcode()
+                    raw = resp.read().decode('utf-8', errors='replace')
+                logger.info(f"[Subtitle] JSON3 [{lang}] HTTP {status} for [{video_id}], body={raw[:200]}")
+            except urllib.error.HTTPError as he:
+                logger.warning(f"[Subtitle] JSON3 [{lang}] HTTPError code={he.code} for [{video_id}], body={he.read().decode('utf-8', errors='replace')[:200]}")
+                return None
+            except urllib.error.URLError as ue:
+                logger.warning(f"[Subtitle] JSON3 [{lang}] URLError reason={ue.reason} for [{video_id}]")
+                return None
+            data = _json.loads(raw)
+            events = data.get('events', [])
+            if not events:
+                logger.warning(f"[Subtitle] JSON3 [{lang}] no events for [{video_id}]")
+                return None
+            # Convert JSON3 to VTT
+            vtt_lines = ['WEBVTT\n\n']
+            for ev in events:
+                t_start = int(ev.get('tStartMs', '0'))
+                d_dur = int(ev.get('dDurationMs', '0'))
+                segs = ev.get('segs', [])
+                text = ''.join(s.get('utf8', '') for s in segs)
+                if not text:
+                    continue
+                start_ts = self._ms_to_vtt_ts(t_start)
+                end_ts = self._ms_to_vtt_ts(t_start + d_dur)
+                vtt_lines.append(f'{start_ts} --> {end_ts}\n{text}\n\n')
+            vtt_content = ''.join(vtt_lines)
+            # Cache it
+            cache_dir = self._get_cache_dir()
+            vtt_path = os.path.join(cache_dir, f"sub_auto_{video_id}_{lang}.vtt")
+            with open(vtt_path, 'w', encoding='utf-8') as f:
+                f.write(vtt_content)
+            logger.info(f"[Subtitle] JSON3 HIT [{lang}] for [{video_id}]")
+            return vtt_path
+        except Exception as e:
+            logger.warning(f"[Subtitle] JSON3 [{lang}] exception: {type(e).__name__}: {e}")
+            return None
+
+    @staticmethod
+    def _ms_to_vtt_ts(ms: int) -> str:
+        """Convert milliseconds to VTT timestamp HH:MM:SS.mmm"""
+        h = ms // 3600000
+        m = (ms % 3600000) // 60000
+        s = (ms % 60000) // 1000
+        ms_rem = ms % 1000
+        return f'{h:02d}:{m:02d}:{s:02d}.{ms_rem:03d}'
 
     @staticmethod
     def _convert_subtitle_fmt_to_vtt(url: str) -> str:
@@ -341,9 +568,9 @@ def search_videos(query: str, max_results: int = 60) -> str:
     results = _extractor.search(query, max_results)
     return json.dumps(results, ensure_ascii=False)
 
-def get_video_info(video_id: str) -> str:
+def get_video_info(video_id: str, subtitle_pref: str = "none") -> str:
     """Get detailed video info - returns JSON string"""
-    info = _extractor.extract_video_info(video_id)
+    info = _extractor.extract_video_info(video_id, subtitle_pref)
     return json.dumps(info, ensure_ascii=False) if info else "{}"
 
 
