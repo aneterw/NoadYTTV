@@ -316,61 +316,37 @@ class YouTubeExtractor:
 
         # ── Auto mode ──
         if preferred_lang == "auto":
-            # Step A: YTA probe — 只抓一次，偵測實際語言
-            detected_lang: Optional[str] = None
+            # Step A: YTA 主動下載字幕 — 獲取可用語言，直接下載第一個可用語言
             try:
                 from youtube_transcript_api import YouTubeTranscriptApi
                 yta = YouTubeTranscriptApi()
-                result = yta.fetch(video_id)  # 不指定語言，讓 YTA 返回可用字幕
-                entries = result.to_raw_data()  # 新版 API: FetchedTranscript → list of dict
-                if entries:
-                    detected_lang = (getattr(result, 'language_code', None)
-                                     or getattr(result, 'language', None)
-                                     or 'en')
-                    logger.info(f"[Subtitle] YTA PROBE detected [{detected_lang}] for [{video_id}]")
-            except Exception as e:
-                logger.warning(f"[Subtitle] YTA PROBE failed: {e}, trying JSON3 fallback")
-                # JSON3 fallback probe
-                try:
-                    import json as _json
-                    import urllib.request
-                    import urllib.error
-                    for probe_lang in ['en', 'ja']:
-                        try:
-                            json3_url = f"https://www.youtube.com/api/timedtext?v={video_id}&lang={probe_lang}&fmt=json3"
-                            req = urllib.request.Request(json3_url, headers={'User-Agent': 'Mozilla/5.0'})
-                            try:
-                                with urllib.request.urlopen(req, timeout=15) as resp:
-                                    status = resp.getcode()
-                                    raw = resp.read().decode('utf-8', errors='replace')
-                                logger.info(f"[Subtitle] JSON3 PROBE [{probe_lang}] HTTP {status} for [{video_id}], body={raw[:200]}")
-                            except urllib.error.HTTPError as he:
-                                logger.warning(f"[Subtitle] JSON3 PROBE [{probe_lang}] HTTPError code={he.code} for [{video_id}], body={he.read().decode('utf-8', errors='replace')[:200]}")
-                                continue
-                            except urllib.error.URLError as ue:
-                                logger.warning(f"[Subtitle] JSON3 PROBE [{probe_lang}] URLError reason={ue.reason} for [{video_id}]")
-                                continue
-                            data = _json.loads(raw)
-                            events = data.get('events', [])
-                            if events:
-                                detected_lang = probe_lang
-                                logger.info(f"[Subtitle] JSON3 PROBE detected [{detected_lang}] for [{video_id}]")
-                                break
-                        except Exception as e3:
-                            logger.warning(f"[Subtitle] JSON3 PROBE [{probe_lang}] exception: {type(e3).__name__}: {e3}")
-                            continue
-                except Exception as e2:
-                    logger.warning(f"[Subtitle] JSON3 PROBE failed: {e2}")
-
-            # Step B: timedtext(detected) — 依據偵測到的語言抓 timedtext
-            if detected_lang:
-                for lang, subs in all_captions.items():
-                    if _matches(lang, detected_lang):
-                        _add_timedtext(lang, subs, is_auto_src=lang in (auto_captions or {}), video_id=video_id)
-                        if tracks:
+                transcript_list = yta.list(video_id)  # 獲取所有可用轉錄
+                available = list(transcript_list)
+                if available:
+                    chosen = available[0]  # 第一個可用語言，不按優先順序
+                    detected_lang = chosen.language_code
+                    result = chosen.fetch()  # 下載該語言字幕
+                    entries = result.to_raw_data()  # 新版 API: FetchedTranscript → list of dict
+                    if entries:
+                        vtt_content = self._build_vtt_from_entries(entries, detected_lang)
+                        if vtt_content:
+                            vtt_path = os.path.join('/sdcard/Download', f"sub_auto_{video_id}_{detected_lang}.vtt")
+                            with open(vtt_path, 'w', encoding='utf-8-sig') as f:
+                                f.write(vtt_content)
+                            tracks.append({
+                                'language': detected_lang,
+                                'name': f"{detected_lang} (YTA)",
+                                'url': '',
+                                'local_path': vtt_path,
+                                'ext': 'vtt',
+                                'is_auto': True,
+                            })
+                            logger.info(f"[Subtitle] YTA HIT [{detected_lang}] for [{video_id}] path={vtt_path}")
                             return tracks
+            except Exception as e:
+                logger.warning(f"[Subtitle] YTA direct download failed: {e}")
 
-            # Step C: timedtext[priority en, ja] — YTA probe 失敗或 detected timedtext 無結果，按優先順序
+            # Step B: YTA 全部失敗，fallback 到 timedtext 按優先順序 [en, ja]
             if not tracks:
                 for fb in ['en', 'ja']:
                     for lang, subs in all_captions.items():
@@ -402,29 +378,35 @@ class YouTubeExtractor:
 
     def _build_vtt_from_entries(self, entries, lang: str) -> Optional[str]:
         """Build VTT content from YouTubeTranscriptApi entries (new API: list of dict via to_raw_data)."""
-        import os
+        import re
         try:
             if not entries:
                 return None
-            vtt_lines = ['WEBVTT\n\n']
+            vtt_lines = ['WEBVTT', '']
             for entry in entries:
-                # entries from to_raw_data() are dicts: {'start': float, 'duration': float, 'text': str}
                 if isinstance(entry, dict):
                     start = entry.get('start', 0)
                     duration = entry.get('duration', 2.0)
                     text = entry.get('text', '')
                 else:
-                    # Fallback for object-style entries
                     start = getattr(entry, 'start', 0)
                     duration = getattr(entry, 'duration', 2.0)
                     text = getattr(entry, 'text', '')
                 if not text:
                     continue
-                start_ts = self._ms_to_vtt_ts(int(start * 1000))
-                end_ts = self._ms_to_vtt_ts(int((start + duration) * 1000))
-                vtt_lines.append(f'{start_ts} --> {end_ts}\n{text}\n\n')
-            vtt_content = ''.join(vtt_lines)
-            if len(vtt_lines) <= 1:
+                start_ms = int(start * 1000)
+                end_ms = int((start + duration) * 1000)
+                if end_ms <= start_ms:
+                    end_ms = start_ms + 1000
+                start_ts = self._ms_to_vtt_ts(start_ms)
+                end_ts = self._ms_to_vtt_ts(end_ms)
+                safe_text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                safe_text = re.sub(r'<[^>]+>', '', safe_text)
+                vtt_lines.append(f'{start_ts} --> {end_ts}')
+                vtt_lines.append(safe_text)
+                vtt_lines.append('')
+            vtt_content = '\n'.join(vtt_lines) + '\n'
+            if len(vtt_lines) <= 2:
                 return None
             return vtt_content
         except Exception as e:
