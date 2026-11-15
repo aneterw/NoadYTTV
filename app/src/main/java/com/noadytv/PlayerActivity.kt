@@ -80,14 +80,20 @@ class PlayerActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                // 讀取使用者字幕偏好（預設 "none"）
+                val prefs = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
+                val savedSubtitle = prefs.getString(KEY_SUBTITLE, "none") ?: "none"
+                val savedResolution = prefs.getString(KEY_RESOLUTION, "auto") ?: "auto"
+
                 // 1. 取得完整影片資訊（含字幕、解析度列表）
-                val videoInfoResult = viewModel.getVideoInfo(videoId)
+                val videoInfoResult = viewModel.getVideoInfo(videoId, savedSubtitle)
                 if (videoInfoResult.isSuccess) {
                     currentVideoInfo = videoInfoResult.getOrNull()
+                    android.util.Log.d("Nood_Y", "CSUB_INFO: subCount=${currentVideoInfo?.subtitles?.size ?: 0} langs=${currentVideoInfo?.subtitles?.map { it.language } ?: "null"}")
                 }
 
                 // 2. 取得播放資訊
-                val result = viewModel.getPlaybackInfo(videoId)
+                val result = viewModel.getPlaybackInfo(videoId, savedSubtitle)
                 if (result.isSuccess) {
                     val playbackInfo = result.getOrNull()
                     if (playbackInfo != null) {
@@ -100,13 +106,21 @@ class PlayerActivity : ComponentActivity() {
                         // 3. 如果有字幕偏好設定，即時重新抓最新字幕 URL 再組建 MediaItem
                         var finalPlaybackInfo = playbackInfo
                         var subtitleTrackForMediaItem: com.noadytv.python.SubtitleTrack? = null
+                        var effectiveLang = ""
                         if (savedSubtitle != "none" && currentVideoInfo != null) {
-                            val matched = currentVideoInfo!!.subtitles.firstOrNull { it.language == savedSubtitle }
-                                ?: currentVideoInfo!!.subtitles.firstOrNull { sub ->
-                                    sub.language.startsWith(savedSubtitle!!, ignoreCase = true) ||
-                                        savedSubtitle!!.startsWith(sub.language, ignoreCase = true)
+                            val info = currentVideoInfo!!
+                            effectiveLang = if (savedSubtitle == "auto") {
+                                info.resolvedLanguage ?: info.subtitles.firstOrNull()?.language ?: "en"
+                            } else {
+                                savedSubtitle ?: "none"
+                            }
+                            val matched = info.subtitles.firstOrNull { it.language == effectiveLang }
+                                ?: info.subtitles.firstOrNull { sub ->
+                                    val el = effectiveLang ?: "en"
+                                    sub.language.startsWith(el, ignoreCase = true) ||
+                                        el.startsWith(sub.language, ignoreCase = true)
                                 }
-                            android.util.Log.d("NoadYTTV_Subtitle", "applySavedPrefs matching: saved=$savedSubtitle matched=${matched?.language} url=${matched?.url}")
+                            android.util.Log.d("NoadYTTV_Subtitle", "applySavedPrefs matching: saved=$savedSubtitle effective=$effectiveLang matched=${matched?.language} url=${matched?.url}")
                             if (matched != null) {
                                 // 使用已抓到的即時 URL（非過期快取），直接交給 ExoPlayer
                                 subtitleTrackForMediaItem = matched
@@ -126,9 +140,9 @@ class PlayerActivity : ComponentActivity() {
                         player?.play()
                         android.util.Log.d("NoadYTTV_Subtitle", "Player started with subtitle=${subtitleTrackForMediaItem?.language ?: "none"}")
 
-                        // 確保文字軌道被啟用，設定優先字幕語言
+                        // 確保文字軌道被啟用，設定優先字幕語言（用 effectiveLang，非 literal "auto"）
                         val params = player?.trackSelector?.getParameters()?.buildUpon()
-                            ?.setPreferredTextLanguage(savedSubtitle)
+                            ?.setPreferredTextLanguage(effectiveLang.takeIf { it.isNotEmpty() } ?: "en")
                             ?.build()
                         if (params != null) {
                             player?.trackSelector?.setParameters(params)
@@ -138,15 +152,16 @@ class PlayerActivity : ComponentActivity() {
                         if (selector != null) {
                             val baseParams = selector.getParameters()
                             val newParams = baseParams.buildUpon()
-                                .setPreferredTextLanguage(savedSubtitle)
+                                .setPreferredTextLanguage(effectiveLang.takeIf { it.isNotEmpty() } ?: "en")
                                 .build()
                             selector.setParameters(newParams)
-                            android.util.Log.d("NoadYTTV_Subtitle", "TrackSelector params set lang=$savedSubtitle")
+                            android.util.Log.d("NoadYTTV_Subtitle", "TrackSelector params set lang=$effectiveLang")
                         }
 
                         // 設定字幕樣式：置中 + 縮小字體（透過 onCues callback + SubtitleView API）
                         player?.addListener(object : Player.Listener {
                             override fun onCues(cueGroup: CueGroup) {
+                                android.util.Log.d("NoadYTTV_Subtitle", "onCues fired: ${cueGroup.cues.size} raw cues")
                                 val cues = cueGroup.cues.map { cue ->
                                     // YouTube VTT cue 的 backgroundColor 預設為 opaque black，
                                     // 需要明確設為 TRANSPARENT 才能消除黑色背景條。
@@ -395,12 +410,19 @@ class PlayerActivity : ComponentActivity() {
         val savedSubtitle = prefs.getString(KEY_SUBTITLE, "none") ?: "none"
         var subtitleTrackForSwitch: SubtitleTrack? = null
         if (savedSubtitle != "none" && currentVideoInfo != null) {
-            subtitleTrackForSwitch = currentVideoInfo!!.subtitles.firstOrNull { it.language == savedSubtitle }
-                ?: currentVideoInfo!!.subtitles.firstOrNull { sub ->
-                    sub.language.startsWith(savedSubtitle, ignoreCase = true) ||
-                        savedSubtitle.startsWith(sub.language, ignoreCase = true)
+            val info = currentVideoInfo!!
+            val effectiveLang = if (savedSubtitle == "auto") {
+                info.resolvedLanguage ?: info.subtitles.firstOrNull()?.language ?: "en"
+            } else {
+                savedSubtitle
+            }
+            subtitleTrackForSwitch = info.subtitles.firstOrNull { it.language == effectiveLang }
+                ?: info.subtitles.firstOrNull { sub ->
+                    val el = effectiveLang ?: "en"
+                    sub.language.startsWith(el, ignoreCase = true) ||
+                        el.startsWith(sub.language, ignoreCase = true)
                 }
-            android.util.Log.d("NoadYTTV_Subtitle", "switchResolution found subtitle=${subtitleTrackForSwitch?.language}")
+            android.util.Log.d("NoadYTTV_Subtitle", "switchResolution found subtitle=${subtitleTrackForSwitch?.language} (saved=$savedSubtitle effective=$effectiveLang)")
         }
 
         val player = playerController?.getExoPlayer()
@@ -467,25 +489,32 @@ class PlayerActivity : ComponentActivity() {
         
         lifecycleScope.launch {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                // 讀取使用者字幕偏好（預設 "none"）
+                val prefs = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
+                val savedSubtitle = prefs.getString(KEY_SUBTITLE, "none") ?: "none"
                 // 並行抓取影片資訊與播放連結，避免串流請求串行延遲
-                val infoDeferred = async(Dispatchers.IO) { viewModel.getVideoInfo(nextId) }
-                val playDeferred = async(Dispatchers.IO) { viewModel.getPlaybackInfo(nextId) }
+                val infoDeferred = async(Dispatchers.IO) { viewModel.getVideoInfo(nextId, savedSubtitle) }
+                val playDeferred = async(Dispatchers.IO) { viewModel.getPlaybackInfo(nextId, savedSubtitle) }
                 val result = playDeferred.await()
                 if (result.isSuccess) {
                     val playbackInfo = result.getOrNull()
                     if (playbackInfo != null && playbackInfo.manifestUrl != null) {
                         currentVideoInfo = infoDeferred.await().getOrNull()
                         currentPlaybackInfo = playbackInfo
-                        
-                        val prefs = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
-                        val savedSubtitle = prefs.getString(KEY_SUBTITLE, "none") ?: "none"
-                        
+
                         var subtitleTrackForMediaItem: com.noadytv.python.SubtitleTrack? = null
                         if (savedSubtitle != "none" && currentVideoInfo != null) {
-                            val matched = currentVideoInfo!!.subtitles.firstOrNull { it.language == savedSubtitle }
-                                ?: currentVideoInfo!!.subtitles.firstOrNull { sub ->
-                                    sub.language.startsWith(savedSubtitle, ignoreCase = true) ||
-                                        savedSubtitle.startsWith(sub.language, ignoreCase = true)
+                            val info = currentVideoInfo!!
+                            val effectiveLang = if (savedSubtitle == "auto") {
+                                info.resolvedLanguage ?: info.subtitles.firstOrNull()?.language ?: "en"
+                            } else {
+                                savedSubtitle
+                            }
+                            val matched = info.subtitles.firstOrNull { it.language == effectiveLang }
+                                ?: info.subtitles.firstOrNull { sub ->
+                                    val el = effectiveLang ?: "en"
+                                    sub.language.startsWith(el, ignoreCase = true) ||
+                                        el.startsWith(sub.language, ignoreCase = true)
                                 }
                             if (matched != null) subtitleTrackForMediaItem = matched
                         }

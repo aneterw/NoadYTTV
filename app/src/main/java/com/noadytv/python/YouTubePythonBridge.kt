@@ -60,7 +60,8 @@ data class VideoInfo(
     val upload_date: String?,
     val formats: List<VideoFormat>,
     val subtitles: List<SubtitleTrack>,
-    val is_live: Boolean
+    val is_live: Boolean,
+    val resolvedLanguage: String? = null
 )
 
 data class PlaylistVideo(
@@ -130,10 +131,10 @@ class YouTubePythonBridge private constructor() {
         }
     }
 
-    suspend fun getVideoInfo(videoId: String): Result<VideoInfo> {
+    suspend fun getVideoInfo(videoId: String, subtitlePref: String = "none"): Result<VideoInfo> {
         return withContext(Dispatchers.IO) {
             try {
-                val result = module.callAttr("get_video_info", videoId).toString()
+                val result = module.callAttr("get_video_info", videoId, subtitlePref).toString()
                 val json = JSONObject(result)
 
                 val formats = JSONArray(json.optString("formats", "[]")).let { fmtArray ->
@@ -204,7 +205,8 @@ class YouTubePythonBridge private constructor() {
                     upload_date = json.optString("upload_date"),
                     formats = formats,
                     subtitles = subtitles,
-                    is_live = json.optBoolean("is_live", false)
+                    is_live = json.optBoolean("is_live", false),
+                    resolvedLanguage = json.optString("resolved_language").takeIf { it.isNotEmpty() }
                 )
                 Result.success(videoInfo)
             } catch (e: Exception) {
