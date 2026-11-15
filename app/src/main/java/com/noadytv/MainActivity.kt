@@ -72,10 +72,13 @@ class MainActivity : ComponentActivity() {
                 resultsGrid.setSelection(position)
                 resultsGrid.requestFocusFromTouch()
                 resultsGrid.requestFocus()
+            } else {
+                // 沒有位置可恢復時，焦點回到搜尋框
+                findViewById<EditText>(R.id.search_input).requestFocus()
             }
+        } else {
+            findViewById<EditText>(R.id.search_input).requestFocus()
         }
-        // 確保搜尋框始終有焦點，方便繼續搜索
-        findViewById<EditText>(R.id.search_input).requestFocus()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
