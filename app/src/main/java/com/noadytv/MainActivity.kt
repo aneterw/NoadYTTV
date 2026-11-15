@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         isReturningFromPlayer = false
         if (result.resultCode == RESULT_OK) {
-            val position = result.data?.getIntExtra("position", -1) ?: selectedPosition
+            val position = result.data?.getIntExtra("position", selectedPosition) ?: selectedPosition
             if (position >= 0) {
                 // 恢復焦點到原來的影片位置
                 val resultsGrid = findViewById<GridView>(R.id.results_grid)
