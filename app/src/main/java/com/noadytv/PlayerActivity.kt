@@ -222,15 +222,15 @@ class PlayerActivity : ComponentActivity() {
                                 android.util.Log.e("NoadYTTV_Player", "player error: code=${error.errorCode} msg=${error.message}")
                                 runOnUiThread {
                                     val infoMsg = when (error.errorCode) {
-                                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "網路連線失敗"
-                                            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "解碼器初始化失敗"
-                                            else -> error.message ?: "未知錯誤"
+                                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> getString(R.string.toast_network_failed)
+                                            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> getString(R.string.toast_decoder_failed)
+                                            else -> error.message ?: getString(R.string.toast_unknown_error)
                                         }
-                                    Toast.makeText(
-                                        this@PlayerActivity,
-                                        "播放失敗：$infoMsg，將返回搜尋結果頁面",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                        Toast.makeText(
+                                            this@PlayerActivity,
+                                            getString(R.string.toast_playback_failed, infoMsg),
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     val resultIntent = Intent()
                                     resultIntent.putExtra("position", intent.getIntExtra("position", -1))
                                     setResult(RESULT_OK, resultIntent)
@@ -242,7 +242,7 @@ class PlayerActivity : ComponentActivity() {
                         runOnUiThread {
                             Toast.makeText(
                                 this@PlayerActivity,
-                                "無法獲取播放資訊，將返回搜尋結果頁面",
+                                getString(R.string.toast_playback_info_failed),
                                 Toast.LENGTH_LONG
                             ).show()
                             val resultIntent = Intent()
@@ -252,11 +252,11 @@ class PlayerActivity : ComponentActivity() {
                         }
                     }
                 } else {
-                    val error = result.exceptionOrNull()?.message ?: "未知錯誤"
+                    val error = result.exceptionOrNull()?.message ?: getString(R.string.toast_unknown_error)
                     runOnUiThread {
                         Toast.makeText(
                             this@PlayerActivity,
-                            "播放失敗 [錯誤：$error]，將返回搜尋結果頁面",
+                            getString(R.string.toast_playback_failed, "錯誤：$error"),
                             Toast.LENGTH_LONG
                         ).show()
                         val resultIntent = Intent()

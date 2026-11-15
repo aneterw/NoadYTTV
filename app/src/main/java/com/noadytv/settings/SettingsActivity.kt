@@ -1,5 +1,6 @@
 package com.noadytv.settings
 
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
@@ -16,8 +17,14 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.appcompat.app.AppCompatActivity
 import com.noadytv.MainActivity
+import com.noadytv.R
+import com.noadytv.utils.AppLocale
 
 class SettingsActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     private val PREF_FILE = "player_settings"
     private val KEY_SUBTITLE = "pref_subtitle"
@@ -64,20 +71,20 @@ class SettingsActivity : AppCompatActivity() {
         menu.gravity = Gravity.CENTER
 
         val titleView = TextView(this).apply {
-            text = "播放設定"
+            text = getString(R.string.settings_title)
             textSize = 18f
             setTextColor(Color.WHITE)
             setPadding(0, 0, 0, 24)
             gravity = Gravity.CENTER
         }
 
-        subtitleRow = buildSettingRow("字幕", getCurrentSubtitleLabel(), 0)
-        resolutionRow = buildSettingRow("解析度", getCurrentResolutionLabel(), 1)
-        languageRow = buildSettingRow("介面語言", getCurrentLanguageLabel(), 2)
-        autoPlayRow = buildSettingRow("自動播放下一集", getAutoPlayLabel(), 3)
+        subtitleRow = buildSettingRow(getString(R.string.subtitles), getCurrentSubtitleLabel(), 0)
+        resolutionRow = buildSettingRow(getString(R.string.resolution_label), getCurrentResolutionLabel(), 1)
+        languageRow = buildSettingRow(getString(R.string.language_label), getCurrentLanguageLabel(), 2)
+        autoPlayRow = buildSettingRow(getString(R.string.auto_play_next), getAutoPlayLabel(), 3)
 
         btnBack = Button(this).apply {
-            text = "返回主頁"
+            text = getString(R.string.settings_back_home)
             textSize = 14f
             setTextColor(Color.WHITE)
             setPadding(24, 8, 24, 8)
@@ -112,7 +119,18 @@ class SettingsActivity : AppCompatActivity() {
         subtitleRow.requestFocus()
     }
 
-    private fun buildSettingRow(label: String, value: String, index: Int): LinearLayout {
+    override fun onResume() {
+            super.onResume()
+            val saved = AppLocale.getSavedLocale(this)
+            val current = resources.configuration.locale?.toLanguageTag()
+            val s = saved.replace("_", "-").lowercase()
+            val c = current?.replace("_", "-")?.lowercase() ?: ""
+            if (s != c) {
+                recreate()
+            }
+        }
+
+        private fun buildSettingRow(label: String, value: String, index: Int): LinearLayout {
         val row = LinearLayout(this)
         row.orientation = LinearLayout.HORIZONTAL
         row.layoutParams = LinearLayout.LayoutParams(
@@ -217,56 +235,63 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    // 字幕語言列表（循環切換）
+    // 字幕語言列表（循環切換，僅代碼；標籤由 getSubtitleLangLabel 本地化）
     private val SUBTITLE_LANGS = listOf(
-        "none" to "不顯示字幕",
-        "auto" to "自動偵測",
-        "zh-Hant" to "繁體中文",
-        "zh-Hans" to "简体中文",
-        "en" to "英文",
-        "ja-orig" to "日語(原版)",
-        "ja" to "日語",
-        "ko" to "韓語",
-        "fr" to "法語",
-        "es" to "西班牙語",
-        "de" to "德語"
+        "none",
+        "auto",
+        "zh-Hant",
+        "zh-Hans",
+        "en",
+        "ja-orig",
+        "ja",
+        "ko",
+        "fr",
+        "es",
+        "de"
     )
+
+    private fun getSubtitleLangLabel(code: String): String = when (code) {
+        "none" -> getString(R.string.subtitle_none)
+        "auto" -> getString(R.string.subtitle_auto)
+        "zh-Hant" -> getString(R.string.subtitle_zh_tw)
+        "zh-Hans" -> getString(R.string.subtitle_zh_cn)
+        "en" -> getString(R.string.subtitle_en)
+        "ja-orig" -> getString(R.string.subtitle_ja_orig)
+        "ja" -> getString(R.string.subtitle_ja)
+        "ko" -> getString(R.string.subtitle_ko)
+        "fr" -> getString(R.string.subtitle_fr)
+        "es" -> getString(R.string.subtitle_es)
+        "de" -> getString(R.string.subtitle_de)
+        else -> code
+    }
 
     private fun getCurrentSubtitleLabel(): String {
         val lang = prefs.getString(KEY_SUBTITLE, "none")
-        return SUBTITLE_LANGS.firstOrNull { it.first == lang }?.second ?: "不顯示字幕"
+        return getSubtitleLangLabel(lang ?: "none")
     }
 
     private fun getSubtitleLangName(code: String): String {
-        return SUBTITLE_LANGS.firstOrNull { it.first == code }?.second ?: code
+        return getSubtitleLangLabel(code)
     }
 
     private fun getCurrentResolutionLabel(): String {
         val res = prefs.getString(KEY_RESOLUTION, "auto")
         return when (res) {
-            "auto" -> "自動（最高解析度）"
-            else -> "${res}p"
+            "auto" -> getString(R.string.resolution_auto)
+            else -> "$res${getString(R.string.quality_suffix)}"
         }
     }
 
     private fun getCurrentLanguageLabel(): String {
-        val lang = prefs.getString(KEY_LANGUAGE, "zh_TW")
-        return when (lang) {
-            "zh_TW" -> "繁體中文"
-            "zh_CN" -> "简体中文"
-            "en" -> "English"
-            "ja" -> "日本語"
-            "ko" -> "한국어"
-            "es" -> "Español"
-            else -> lang ?: "zh_TW"
-        }
+        val lang = prefs.getString(KEY_LANGUAGE, "zh_TW") ?: "zh_TW"
+        return AppLocale.getLanguageDisplayName(this, lang)
     }
 
     private fun toggleSubtitle() {
         val current = prefs.getString(KEY_SUBTITLE, "none")
-        val currentIndex = SUBTITLE_LANGS.indexOfFirst { it.first == current }
+        val currentIndex = SUBTITLE_LANGS.indexOf(current)
         val nextIndex = (currentIndex + 1) % SUBTITLE_LANGS.size
-        val (newCode, _) = SUBTITLE_LANGS[nextIndex]
+        val newCode = SUBTITLE_LANGS[nextIndex]
         prefs.edit().putString(KEY_SUBTITLE, newCode).apply()
         recreate()
     }
@@ -295,12 +320,12 @@ class SettingsActivity : AppCompatActivity() {
             "es" -> "zh_TW"
             else -> "zh_TW"
         }
-        prefs.edit().putString(KEY_LANGUAGE, newValue).apply()
+        AppLocale.saveAndApplyLocale(this, newValue)
         recreate()
     }
 
     private fun getAutoPlayLabel(): String {
-        return if (prefs.getBoolean(KEY_AUTO_PLAY, true)) "開" else "關"
+        return if (prefs.getBoolean(KEY_AUTO_PLAY, true)) getString(R.string.on) else getString(R.string.off)
     }
 
     private fun toggleAutoPlay() {

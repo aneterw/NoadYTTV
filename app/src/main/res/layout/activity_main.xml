@@ -120,16 +120,36 @@
     </HorizontalScrollView>
 
     <!-- 結果區域（方格顯示） -->
-    <GridView
-        android:id="@+id/results_grid"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:numColumns="auto_fit"
-        android:columnWidth="200dp"
-        android:verticalSpacing="12dp"
-        android:horizontalSpacing="16dp"
-        android:stretchMode="columnWidth"
-        android:focusable="true"
-        android:focusableInTouchMode="true" />
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <GridView
+            android:id="@+id/results_grid"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:numColumns="auto_fit"
+            android:columnWidth="200dp"
+            android:verticalSpacing="12dp"
+            android:horizontalSpacing="16dp"
+            android:stretchMode="columnWidth"
+            android:focusable="true"
+            android:focusableInTouchMode="true" />
+
+        <!-- 無搜索結果提示（顯示在結果區域左上角） -->
+        <TextView
+            android:id="@+id/empty_state_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|left"
+            android:layout_margin="16dp"
+            android:text=""
+            android:textColor="#FFD700"
+            android:textSize="16sp"
+            android:gravity="start"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
 </LinearLayout>

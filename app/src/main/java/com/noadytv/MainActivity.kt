@@ -38,8 +38,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import com.noadytv.utils.AppLocale
 
 class MainActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     private val viewModel: MainViewModel by lazy {
         ViewModelProvider(this)[MainViewModel::class.java]
@@ -117,14 +122,12 @@ class MainActivity : ComponentActivity() {
                     resultsGrid.adapter = null
                     searchingText.visibility = android.view.View.GONE
                     if (videos.isEmpty()) {
-                        resultsGrid.adapter = ArrayAdapter<String>(
-                            this@MainActivity,
-                            android.R.layout.simple_list_item_1,
-                            listOf("无搜索结果")
-                        )
-                        searchingText.text = "搜索完成：找到 0 个影片 $lastSearchQuery"
-                        searchingText.visibility = android.view.View.VISIBLE
+                        val emptyState = findViewById<TextView>(R.id.empty_state_text)
+                        emptyState.text = getString(R.string.no_results) + "\n\n" + getString(R.string.voice_search_tip)
+                        emptyState.visibility = android.view.View.VISIBLE
                     } else {
+                        val emptyState = findViewById<TextView>(R.id.empty_state_text)
+                        emptyState.visibility = android.view.View.GONE
                         val adapter = VideoAdapter(this@MainActivity, videos, imageLoader!!)
                         resultsGrid.adapter = adapter
                         resultsGrid.onItemClickListener = android.widget.AdapterView.OnItemClickListener { _, _, position, _ ->
@@ -152,7 +155,7 @@ class MainActivity : ComponentActivity() {
 
                             override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
                         }
-                        searchingText.text = "搜索完成：找到 ${videos.size} 个影片 $lastSearchQuery"
+                        searchingText.text = getString(R.string.search_complete, videos.size) + " $lastSearchQuery"
                         searchingText.visibility = android.view.View.VISIBLE
                         
                         // 如果是從 PlayerActivity 返回，恢復焦點
@@ -222,7 +225,7 @@ class MainActivity : ComponentActivity() {
             lastSearchQuery = query
             addSearchHistory(query)
             val searchingText = findViewById<TextView>(R.id.searching_text)
-            searchingText.text = "正在搜索：$query"
+            searchingText.text = getString(R.string.searching, query)
             searchingText.visibility = android.view.View.VISIBLE
             viewModel.search(query)
 
@@ -238,7 +241,7 @@ class MainActivity : ComponentActivity() {
 
     private fun playVideo(video: VideoSearchResult, position: Int) {
         selectedPosition = position
-        Toast.makeText(this, "播放：${video.title}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.playing, video.title), Toast.LENGTH_SHORT).show()
         isReturningFromPlayer = true
         val currentVideos = viewModel.searchResults.value
         val intent = Intent(this, com.noadytv.PlayerActivity::class.java)
@@ -255,6 +258,17 @@ class MainActivity : ComponentActivity() {
     override fun onBackPressed() {
         super.onBackPressed()
     }
+
+    override fun onResume() {
+            super.onResume()
+            val saved = AppLocale.getSavedLocale(this)
+            val current = resources.configuration.locale?.toLanguageTag()
+            val s = saved.replace("_", "-").lowercase()
+            val c = current?.replace("_", "-")?.lowercase() ?: ""
+            if (s != c) {
+                recreate()
+            }
+        }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -280,7 +294,7 @@ class MainActivity : ComponentActivity() {
             val duration = view.findViewById<TextView>(R.id.video_duration)
 
             title.text = video.title
-            channel.text = video.channel ?: "未知频道"
+            channel.text = video.channel ?: getString(R.string.unknown_channel)
 
             // 时长显示
             val durationText = if (video.duration != null && video.duration > 0) {
@@ -360,12 +374,10 @@ class MainActivity : ComponentActivity() {
 
         if (searchHistory.isEmpty()) {
             historyScroll.visibility = android.view.View.GONE
-            return
-        }
+        } else {
+            historyScroll.visibility = android.view.View.VISIBLE
 
-        historyScroll.visibility = android.view.View.VISIBLE
-
-        for (keyword in searchHistory) {
+            for (keyword in searchHistory) {
             // 每個歷史關鍵字用一個水平容器包住，讓關鍵字與 X 按鈕緊貼
             val row = LinearLayout(this)
             row.orientation = LinearLayout.HORIZONTAL
@@ -440,7 +452,7 @@ class MainActivity : ComponentActivity() {
         // 清除所有歷史按鈕
         if (searchHistory.isNotEmpty()) {
             val clearBtn = Button(this)
-            clearBtn.text = "清除所有歷史"
+            clearBtn.text = getString(R.string.clear_all_history)
             clearBtn.textSize = 14f
             clearBtn.setTextColor(android.graphics.Color.WHITE)
             clearBtn.setBackgroundResource(R.drawable.focus_history_btn)
@@ -458,6 +470,12 @@ class MainActivity : ComponentActivity() {
             }
             historyContainer.addView(clearBtn)
         }
+    }
+
+    // 起始頁面始終顯示「無搜索結果」+ 語音輸入提示
+    val emptyState = findViewById<TextView>(R.id.empty_state_text)
+    emptyState.text = getString(R.string.no_results) + "\n\n" + getString(R.string.voice_search_tip)
+    emptyState.visibility = android.view.View.VISIBLE
     }
 
 }
