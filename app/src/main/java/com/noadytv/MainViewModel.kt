@@ -34,26 +34,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _navigateToPlayer = MutableStateFlow<Pair<String, List<String>>?>(null)
     val navigateToPlayer: StateFlow<Pair<String, List<String>>?> = _navigateToPlayer.asStateFlow()
 
-    fun search(query: String) {
-        if (query.isBlank()) {
-            _searchResults.value = emptyList()
-            return
-        }
+    fun search(query: String, maxResults: Int = 60) {
+            if (query.isBlank()) {
+                _searchResults.value = emptyList()
+                return
+            }
 
-        _isSearching.value = true
-        _searchError.value = null
+            _isSearching.value = true
+            _searchError.value = null
 
-        viewModelScope.launch {
-            val result = repository.search(query)
-            _isSearching.value = false
-            result.onSuccess { videos ->
-                _searchResults.value = videos
-                _focusedIndex.value = 0
-            }.onFailure { error ->
-                _searchError.value = error.message
+            viewModelScope.launch {
+                val result = repository.search(query, maxResults)
+                _isSearching.value = false
+                result.onSuccess { videos ->
+                    _searchResults.value = videos
+                    _focusedIndex.value = 0
+                }.onFailure { error ->
+                    _searchError.value = error.message
+                }
             }
         }
-    }
 
     fun onVideoClick(video: VideoSearchResult) {
         val playlist = _searchResults.value.map { it.id }

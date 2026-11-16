@@ -17,6 +17,7 @@
     <string name="audio_track">聲音軌</string>
     <string name="video_info">影片資訊</string>
     <string name="auto_play_next">自動播放下一集</string>
+    <string name="search_limit_label">搜尋上限</string>
     <string name="voice_search">語音搜尋</string>
     <string name="settings_title">設定</string>
     <string name="settings_back_home">返回主頁</string>
