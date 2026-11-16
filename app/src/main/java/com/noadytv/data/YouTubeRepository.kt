@@ -14,14 +14,14 @@ class YouTubeRepository private constructor() {
     // In-memory cache to avoid re-fetching same video info
     private val videoCache = mutableMapOf<String, VideoInfo>()
 
-    suspend fun search(query: String): Result<List<VideoSearchResult>> {
-        return try {
-            val result = bridge.searchVideos(query)
-            result
-        } catch (e: Exception) {
-            Result.failure(e)
+    suspend fun search(query: String, maxResults: Int = 60): Result<List<VideoSearchResult>> {
+            return try {
+                val result = bridge.searchVideos(query, maxResults)
+                result
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
-    }
 
     suspend fun getVideoInfo(videoId: String, subtitlePref: String = "none"): Result<VideoInfo> {
         // Return cached result if available

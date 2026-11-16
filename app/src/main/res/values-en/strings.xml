@@ -17,6 +17,7 @@
     <string name="audio_track">Audio Track</string>
     <string name="video_info">Video Info</string>
     <string name="auto_play_next">Auto Play Next</string>
+    <string name="search_limit_label">Search Limit</string>
     <string name="voice_search">Voice Search</string>
     <string name="settings_title">Settings</string>
     <string name="voice_search_tip">Use voice input from the system keyboard to search more efficiently.</string>

@@ -9,12 +9,12 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.noadytv"
-        minSdk = 24
-        targetSdk = 34
-        versionCode = 3
-        versionName = "0.6"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+            applicationId = "com.noadytv"
+            minSdk = 24
+            targetSdk = 34
+            versionCode = 4
+            versionName = "0.7.0"
+            testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a")

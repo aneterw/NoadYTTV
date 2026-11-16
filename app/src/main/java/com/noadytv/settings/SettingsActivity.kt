@@ -31,14 +31,16 @@ class SettingsActivity : AppCompatActivity() {
     private val KEY_RESOLUTION = "pref_resolution"
     private val KEY_LANGUAGE = "pref_language"
     private val KEY_AUTO_PLAY = "pref_auto_play_next"
+    private val KEY_SEARCH_LIMIT = "pref_search_limit"
 
     private lateinit var prefs: SharedPreferences
-    private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=自動播放, 4=返回主頁
+    private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=搜尋上限, 4=自動播放, 5=返回主頁
 
     // 焦點項目引用
     private lateinit var subtitleRow: LinearLayout
     private lateinit var resolutionRow: LinearLayout
     private lateinit var languageRow: LinearLayout
+    private lateinit var searchLimitRow: LinearLayout
     private lateinit var autoPlayRow: LinearLayout
     private lateinit var btnBack: Button
 
@@ -81,7 +83,8 @@ class SettingsActivity : AppCompatActivity() {
         subtitleRow = buildSettingRow(getString(R.string.subtitles), getCurrentSubtitleLabel(), 0)
         resolutionRow = buildSettingRow(getString(R.string.resolution_label), getCurrentResolutionLabel(), 1)
         languageRow = buildSettingRow(getString(R.string.language_label), getCurrentLanguageLabel(), 2)
-        autoPlayRow = buildSettingRow(getString(R.string.auto_play_next), getAutoPlayLabel(), 3)
+        searchLimitRow = buildSettingRow(getString(R.string.search_limit_label), getCurrentSearchLimitLabel(), 3)
+        autoPlayRow = buildSettingRow(getString(R.string.auto_play_next), getAutoPlayLabel(), 4)
 
         btnBack = Button(this).apply {
             text = getString(R.string.settings_back_home)
@@ -96,7 +99,7 @@ class SettingsActivity : AppCompatActivity() {
             setFocusable(true)
             setFocusableInTouchMode(true)
             setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) currentFocusIndex = 4
+                if (hasFocus) currentFocusIndex = 5
                 updateFocusVisual()
             }
             setOnClickListener {
@@ -108,6 +111,7 @@ class SettingsActivity : AppCompatActivity() {
         menu.addView(subtitleRow)
         menu.addView(resolutionRow)
         menu.addView(languageRow)
+        menu.addView(searchLimitRow)
         menu.addView(autoPlayRow)
         menu.addView(btnBack)
 
@@ -120,17 +124,17 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onResume() {
-            super.onResume()
-            val saved = AppLocale.getSavedLocale(this)
-            val current = resources.configuration.locale?.toLanguageTag()
-            val s = saved.replace("_", "-").lowercase()
-            val c = current?.replace("_", "-")?.lowercase() ?: ""
-            if (s != c) {
-                recreate()
-            }
+        super.onResume()
+        val saved = AppLocale.getSavedLocale(this)
+        val current = resources.configuration.locale?.toLanguageTag()
+        val s = saved.replace("_", "-").lowercase()
+        val c = current?.replace("_", "-")?.lowercase() ?: ""
+        if (s != c) {
+            recreate()
         }
+    }
 
-        private fun buildSettingRow(label: String, value: String, index: Int): LinearLayout {
+    private fun buildSettingRow(label: String, value: String, index: Int): LinearLayout {
         val row = LinearLayout(this)
         row.orientation = LinearLayout.HORIZONTAL
         row.layoutParams = LinearLayout.LayoutParams(
@@ -178,7 +182,8 @@ class SettingsActivity : AppCompatActivity() {
                 0 -> toggleSubtitle()
                 1 -> toggleResolution()
                 2 -> toggleLanguage()
-                3 -> toggleAutoPlay()
+                3 -> toggleSearchLimit()
+                4 -> toggleAutoPlay()
             }
         }
 
@@ -195,7 +200,7 @@ class SettingsActivity : AppCompatActivity() {
 
     // 更新焦點視覺：當前焦點項目背景變亮黃
     private fun updateFocusVisual() {
-        val rows = arrayOf(subtitleRow, resolutionRow, languageRow, autoPlayRow, btnBack)
+        val rows = arrayOf(subtitleRow, resolutionRow, languageRow, searchLimitRow, autoPlayRow, btnBack)
 
         rows.forEachIndexed { index, view ->
             val isFocused = index == currentFocusIndex
@@ -222,7 +227,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun moveFocus(delta: Int) {
-        val total = 5  // 字幕, 解析度, 語言, 自動播放, 返回主頁
+        val total = 6  // 字幕, 解析度, 語言, 搜尋上限, 自動播放, 返回主頁
         currentFocusIndex = (currentFocusIndex + delta + total) % total
         updateFocusVisual()
 
@@ -230,8 +235,9 @@ class SettingsActivity : AppCompatActivity() {
             0 -> subtitleRow.requestFocus()
             1 -> resolutionRow.requestFocus()
             2 -> languageRow.requestFocus()
-            3 -> autoPlayRow.requestFocus()
-            4 -> btnBack.requestFocus()
+            3 -> searchLimitRow.requestFocus()
+            4 -> autoPlayRow.requestFocus()
+            5 -> btnBack.requestFocus()
         }
     }
 
@@ -325,16 +331,33 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun getAutoPlayLabel(): String {
-        return if (prefs.getBoolean(KEY_AUTO_PLAY, true)) getString(R.string.on) else getString(R.string.off)
-    }
+            return if (prefs.getBoolean(KEY_AUTO_PLAY, true)) getString(R.string.on) else getString(R.string.off)
+        }
 
-    private fun toggleAutoPlay() {
-        val current = prefs.getBoolean(KEY_AUTO_PLAY, true)
-        prefs.edit().putBoolean(KEY_AUTO_PLAY, !current).apply()
-        recreate()
-    }
+        private fun toggleAutoPlay() {
+            val current = prefs.getBoolean(KEY_AUTO_PLAY, true)
+            prefs.edit().putBoolean(KEY_AUTO_PLAY, !current).apply()
+            recreate()
+        }
 
-    private fun goBackToMain() {
+        // 搜尋上限列表（循環切換）
+        private val SEARCH_LIMITS = listOf(40, 60, 80, 100, 120)
+
+        private fun getCurrentSearchLimitLabel(): String {
+            val limit = prefs.getInt(KEY_SEARCH_LIMIT, 60)
+            return limit.toString()
+        }
+
+        private fun toggleSearchLimit() {
+            val current = prefs.getInt(KEY_SEARCH_LIMIT, 60)
+            val currentIndex = SEARCH_LIMITS.indexOf(current)
+            val nextIndex = (currentIndex + 1) % SEARCH_LIMITS.size
+            val newLimit = SEARCH_LIMITS[nextIndex]
+            prefs.edit().putInt(KEY_SEARCH_LIMIT, newLimit).apply()
+            recreate()
+        }
+
+        private fun goBackToMain() {
         val intent = Intent(this, MainActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         startActivity(intent)
@@ -342,32 +365,33 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                moveFocus(1)
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                moveFocus(-1)
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER -> {
-                // 當前焦點項目執行點擊
-                when (currentFocusIndex) {
-                    0 -> toggleSubtitle()
-                    1 -> toggleResolution()
-                    2 -> toggleLanguage()
-                    3 -> toggleAutoPlay()
-                    4 -> goBackToMain()
+            when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    moveFocus(1)
+                    return true
                 }
-                return true
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    moveFocus(-1)
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_CENTER,
+                KeyEvent.KEYCODE_ENTER -> {
+                    // 當前焦點項目執行點擊
+                    when (currentFocusIndex) {
+                        0 -> toggleSubtitle()
+                        1 -> toggleResolution()
+                        2 -> toggleLanguage()
+                        3 -> toggleSearchLimit()
+                        4 -> toggleAutoPlay()
+                        5 -> goBackToMain()
+                    }
+                    return true
+                }
+                KeyEvent.KEYCODE_BACK -> {
+                    goBackToMain()
+                    return true
+                }
             }
-            KeyEvent.KEYCODE_BACK -> {
-                goBackToMain()
-                return true
-            }
+            return super.onKeyDown(keyCode, event)
         }
-        return super.onKeyDown(keyCode, event)
-    }
 }

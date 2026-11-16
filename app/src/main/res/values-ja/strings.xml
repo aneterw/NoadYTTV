@@ -17,6 +17,7 @@
     <string name="audio_track">オーディオトラック</string>
     <string name="video_info">動画情報</string>
     <string name="auto_play_next">次回を自動再生</string>
+    <string name="search_limit_label">検索上限</string>
     <string name="voice_search">音声検索</string>
     <string name="settings_title">設定</string>
     <string name="voice_search_tip">システムキーボードの音声入力を使うと、検索がより効率的になります。</string>

@@ -5,12 +5,12 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.text.Editable
-import android.text.TextWatcher
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -46,23 +46,22 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(AppLocale.wrap(newBase))
     }
 
-    private val viewModel: MainViewModel by lazy {
-        ViewModelProvider(this)[MainViewModel::class.java]
-    }
+        private val viewModel: MainViewModel by lazy {
+            ViewModelProvider(this)[MainViewModel::class.java]
+        }
 
-    private var imageLoader: ImageLoader? = null
-    private var searchJob: Job? = null
-    private var selectedPosition: Int = -1
-    private var isReturningFromPlayer = false
-    private var lastSearchQuery = ""
-    private var clearSearchJob: Job? = null
-    private var lastSelectedView: View? = null
+        private var imageLoader: ImageLoader? = null
+        private var selectedPosition: Int = -1
+        private var isReturningFromPlayer = false
+        private var lastSearchQuery = ""
+        private var clearSearchJob: Job? = null
+        private var lastSelectedView: View? = null
 
-    // 搜尋歷史（本地持久化）
-    private val searchHistory = mutableListOf<String>()
-    private lateinit var prefs: SharedPreferences
-    private lateinit var historyContainer: LinearLayout
-    private lateinit var historyScroll: HorizontalScrollView
+        // 搜尋歷史（本地持久化）
+        private val searchHistory = mutableListOf<String>()
+        private lateinit var prefs: SharedPreferences
+        private lateinit var historyContainer: LinearLayout
+        private lateinit var historyScroll: HorizontalScrollView
 
     // 使用 Activity Result API 處理從 PlayerActivity 返回
     private val playerActivityLauncher = registerForActivityResult(
@@ -173,44 +172,26 @@ class MainActivity : ComponentActivity() {
         }
 
         // 搜索按钮点击
-        searchButton.setOnClickListener {
-            performSearch()
-        }
+                searchButton.setOnClickListener {
+                    performSearch()
+                }
 
-        // 输入框按下 OK/Enter 触发搜索
-        searchInput.setOnEditorActionListener { _, actionId, event ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
-                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
-            ) {
-                performSearch()
-                true
-            } else {
-                false
-            }
-        }
-
-        // 输入即搜索（防抖 500ms）- 從 PlayerActivity 返回時不觸發搜尋
-        searchInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                // 如果是從 PlayerActivity 返回，不觸發搜尋
-                if (isReturningFromPlayer) return@onTextChanged
-                
-                searchJob?.cancel()
-                searchJob = CoroutineScope(Dispatchers.Main).launch {
-                    delay(500)
-                    if (s?.isNotBlank() == true) {
+                // 输入框按下 OK/Enter 触发搜索
+                searchInput.setOnEditorActionListener { _, actionId, event ->
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
+                        (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                    ) {
                         performSearch()
+                        true
+                    } else {
+                        false
                     }
                 }
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
 
-        // 启动时焦点在搜索输入框
-        searchInput.requestFocus()
+                // 启动时焦点在搜索输入框
+                searchInput.requestFocus()
 
-        // 初始化搜尋歷史
+                // 初始化搜尋歷史
         prefs = getSharedPreferences("noadytv_prefs", Context.MODE_PRIVATE)
         historyContainer = findViewById(R.id.history_container)
         historyScroll = findViewById(R.id.history_scroll)
@@ -219,25 +200,30 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun performSearch() {
-        val searchInput = findViewById<EditText>(R.id.search_input)
-        val query = searchInput.text.toString()
-        if (query.isNotBlank()) {
-            lastSearchQuery = query
-            addSearchHistory(query)
-            val searchingText = findViewById<TextView>(R.id.searching_text)
-            searchingText.text = getString(R.string.searching, query)
-            searchingText.visibility = android.view.View.VISIBLE
-            viewModel.search(query)
+            val searchInput = findViewById<EditText>(R.id.search_input)
+            val query = searchInput.text.toString()
+            if (query.isNotBlank()) {
+                lastSearchQuery = query
+                addSearchHistory(query)
+                val searchingText = findViewById<TextView>(R.id.searching_text)
+                searchingText.text = getString(R.string.searching, query)
+                searchingText.visibility = android.view.View.VISIBLE
+            
+                // 讀取搜尋上限設定
+                val prefs = getSharedPreferences("player_settings", MODE_PRIVATE)
+                val maxResults = prefs.getInt("pref_search_limit", 60)
+            
+                viewModel.search(query, maxResults)
 
-            // 搜尋觸發後 0.5 秒自動清除關鍵字輸入框，但保留搜尋結果畫面
-            clearSearchJob?.cancel()
-            clearSearchJob = CoroutineScope(Dispatchers.Main).launch {
-                delay(500)
-                searchInput.setText("")
-                searchInput.requestFocus()
+                // 搜尋觸發後 0.5 秒自動清除關鍵字輸入框，但保留搜尋結果畫面
+                clearSearchJob?.cancel()
+                clearSearchJob = CoroutineScope(Dispatchers.Main).launch {
+                    delay(500)
+                    searchInput.setText("")
+                    searchInput.requestFocus()
+                }
             }
         }
-    }
 
     private fun playVideo(video: VideoSearchResult, position: Int) {
         selectedPosition = position
@@ -271,10 +257,9 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onDestroy() {
-        super.onDestroy()
-        searchJob?.cancel()
-        imageLoader?.shutdown()
-    }
+            super.onDestroy()
+            imageLoader?.shutdown()
+        }
 
     // 影片卡片适配器（显示缩图、标题、频道、时长）
     private inner class VideoAdapter(
@@ -466,16 +451,11 @@ class MainActivity : ComponentActivity() {
             params.setMargins(margin, 0, margin, 0)
             clearBtn.layoutParams = params
             clearBtn.setOnClickListener {
-                clearAllSearchHistory()
+                            clearAllSearchHistory()
+                        }
+                        historyContainer.addView(clearBtn)
+                    }
+                }
             }
-            historyContainer.addView(clearBtn)
-        }
-    }
-
-    // 起始頁面始終顯示「無搜索結果」+ 語音輸入提示
-    val emptyState = findViewById<TextView>(R.id.empty_state_text)
-    emptyState.text = getString(R.string.no_results) + "\n\n" + getString(R.string.voice_search_tip)
-    emptyState.visibility = android.view.View.VISIBLE
-    }
 
 }
