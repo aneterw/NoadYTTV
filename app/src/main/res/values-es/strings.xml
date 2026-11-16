@@ -45,14 +45,14 @@
     <string name="off">Desactivado</string>
     <string name="search_complete">Búsqueda completa: %d videos encontrados</string>
     <string name="search_complete_none">Búsqueda completa: 0 videos encontrados</string>
-    <string name="searching">Buscando: {query}</string>
-    <string name="playing">Reproduciendo: {title}</string>
+    <string name="searching">Buscando: %s</string>
+    <string name="playing">Reproduciendo: %s</string>
     <string name="unknown_channel">Canal desconocido</string>
     <string name="clear_all_history">Borrar todo el historial</string>
     <string name="voice_search_tip">Usa la entrada de voz del teclado del sistema para buscar de manera más eficiente.</string>
     <string name="toast_network_failed">Fallo de conexión de red</string>
     <string name="toast_decoder_failed">Fallo de inicialización del decodificador</string>
     <string name="toast_unknown_error">Error desconocido</string>
-    <string name="toast_playback_failed">Fallo de reproducción: {msg}, volviendo a los resultados de búsqueda</string>
+    <string name="toast_playback_failed">Fallo de reproducción: %s, volviendo a los resultados de búsqueda</string>
     <string name="toast_playback_info_failed">No se pudo obtener la información de reproducción, volviendo a los resultados de búsqueda</string>
 </resources>

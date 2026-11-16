@@ -46,13 +46,13 @@
     <string name="off">關</string>
     <string name="search_complete">搜索完成：找到 %d 个影片</string>
     <string name="search_complete_none">搜索完成：找到 0 个影片</string>
-    <string name="searching">正在搜索：{query}</string>
-    <string name="playing">播放：{title}</string>
+    <string name="searching">正在搜索：%s</string>
+    <string name="playing">播放：%s</string>
     <string name="unknown_channel">未知频道</string>
     <string name="clear_all_history">清除所有歷史</string>
     <string name="toast_network_failed">網路連線失敗</string>
     <string name="toast_decoder_failed">解碼器初始化失敗</string>
     <string name="toast_unknown_error">未知錯誤</string>
-    <string name="toast_playback_failed">播放失敗：{msg}，將返回搜尋結果頁面</string>
+    <string name="toast_playback_failed">播放失敗：%s，將返回搜尋結果頁面</string>
     <string name="toast_playback_info_failed">無法獲取播放資訊，將返回搜尋結果頁面</string>
 </resources>
