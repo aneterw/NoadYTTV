@@ -46,13 +46,13 @@
     <string name="off">Off</string>
     <string name="search_complete">Search complete: Found %d videos</string>
     <string name="search_complete_none">Search complete: Found 0 videos</string>
-    <string name="searching">Searching: {query}</string>
-    <string name="playing">Playing: {title}</string>
+    <string name="searching">Searching: %s</string>
+    <string name="playing">Playing: %s</string>
     <string name="unknown_channel">Unknown Channel</string>
     <string name="clear_all_history">Clear All History</string>
     <string name="toast_network_failed">Network connection failed</string>
     <string name="toast_decoder_failed">Decoder initialization failed</string>
     <string name="toast_unknown_error">Unknown error</string>
-    <string name="toast_playback_failed">Playback failed: {msg}, returning to search results</string>
+    <string name="toast_playback_failed">Playback failed: %s, returning to search results</string>
     <string name="toast_playback_info_failed">Failed to get playback info, returning to search results</string>
 </resources>
