@@ -27,14 +27,15 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private val PREF_FILE = "player_settings"
-    private val KEY_SUBTITLE = "pref_subtitle"
-    private val KEY_RESOLUTION = "pref_resolution"
-    private val KEY_LANGUAGE = "pref_language"
-    private val KEY_AUTO_PLAY = "pref_auto_play_next"
-    private val KEY_SEARCH_LIMIT = "pref_search_limit"
+        private val KEY_SUBTITLE = "pref_subtitle"
+        private val KEY_RESOLUTION = "pref_resolution"
+        private val KEY_LANGUAGE = "pref_language"
+        private val KEY_AUTO_PLAY = "pref_auto_play_next"
+        private val KEY_SEARCH_LIMIT = "pref_search_limit"
+        private val KEY_FOCUS_INDEX = "pref_focus_index"
 
-    private lateinit var prefs: SharedPreferences
-    private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=搜尋上限, 4=自動播放, 5=返回主頁
+        private lateinit var prefs: SharedPreferences
+        private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=搜尋上限, 4=自動播放, 5=返回主頁
 
     // 焦點項目引用
     private lateinit var subtitleRow: LinearLayout
@@ -116,12 +117,20 @@ class SettingsActivity : AppCompatActivity() {
         menu.addView(btnBack)
 
         root.addView(menu)
-        setContentView(root)
+                setContentView(root)
 
-        // 預設焦點在第一個選項
-        updateFocusVisual()
-        subtitleRow.requestFocus()
-    }
+                // 恢復上次的焦點位置
+                currentFocusIndex = prefs.getInt(KEY_FOCUS_INDEX, 0)
+                updateFocusVisual()
+                when (currentFocusIndex) {
+                    0 -> subtitleRow.requestFocus()
+                    1 -> resolutionRow.requestFocus()
+                    2 -> languageRow.requestFocus()
+                    3 -> searchLimitRow.requestFocus()
+                    4 -> autoPlayRow.requestFocus()
+                    5 -> btnBack.requestFocus()
+                }
+            }
 
     override fun onResume() {
         super.onResume()
@@ -294,49 +303,53 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun toggleSubtitle() {
-        val current = prefs.getString(KEY_SUBTITLE, "none")
-        val currentIndex = SUBTITLE_LANGS.indexOf(current)
-        val nextIndex = (currentIndex + 1) % SUBTITLE_LANGS.size
-        val newCode = SUBTITLE_LANGS[nextIndex]
-        prefs.edit().putString(KEY_SUBTITLE, newCode).apply()
-        recreate()
-    }
-
-    private fun toggleResolution() {
-        val current = prefs.getString(KEY_RESOLUTION, "auto")
-        val newValue = when (current) {
-            "auto" -> "1080"
-            "1080" -> "720"
-            "720" -> "480"
-            "480" -> "auto"
-            else -> "auto"
+            val current = prefs.getString(KEY_SUBTITLE, "none")
+            val currentIndex = SUBTITLE_LANGS.indexOf(current)
+            val nextIndex = (currentIndex + 1) % SUBTITLE_LANGS.size
+            val newCode = SUBTITLE_LANGS[nextIndex]
+            prefs.edit().putString(KEY_SUBTITLE, newCode).apply()
+            prefs.edit().putInt(KEY_FOCUS_INDEX, currentFocusIndex).apply()
+            recreate()
         }
-        prefs.edit().putString(KEY_RESOLUTION, newValue).apply()
-        recreate()
-    }
 
-    private fun toggleLanguage() {
-        val current = prefs.getString(KEY_LANGUAGE, "zh_TW")
-        val newValue = when (current) {
-            "zh_TW" -> "zh_CN"
-            "zh_CN" -> "en"
-            "en" -> "ja"
-            "ja" -> "ko"
-            "ko" -> "es"
-            "es" -> "zh_TW"
-            else -> "zh_TW"
+        private fun toggleResolution() {
+            val current = prefs.getString(KEY_RESOLUTION, "auto")
+            val newValue = when (current) {
+                "auto" -> "1080"
+                "1080" -> "720"
+                "720" -> "480"
+                "480" -> "auto"
+                else -> "auto"
+            }
+            prefs.edit().putString(KEY_RESOLUTION, newValue).apply()
+            prefs.edit().putInt(KEY_FOCUS_INDEX, currentFocusIndex).apply()
+            recreate()
         }
-        AppLocale.saveAndApplyLocale(this, newValue)
-        recreate()
-    }
 
-    private fun getAutoPlayLabel(): String {
+        private fun toggleLanguage() {
+            val current = prefs.getString(KEY_LANGUAGE, "zh_TW")
+            val newValue = when (current) {
+                "zh_TW" -> "zh_CN"
+                "zh_CN" -> "en"
+                "en" -> "ja"
+                "ja" -> "ko"
+                "ko" -> "es"
+                "es" -> "zh_TW"
+                else -> "zh_TW"
+            }
+            AppLocale.saveAndApplyLocale(this, newValue)
+            prefs.edit().putInt(KEY_FOCUS_INDEX, currentFocusIndex).apply()
+            recreate()
+        }
+
+        private fun getAutoPlayLabel(): String {
             return if (prefs.getBoolean(KEY_AUTO_PLAY, true)) getString(R.string.on) else getString(R.string.off)
         }
 
         private fun toggleAutoPlay() {
             val current = prefs.getBoolean(KEY_AUTO_PLAY, true)
             prefs.edit().putBoolean(KEY_AUTO_PLAY, !current).apply()
+            prefs.edit().putInt(KEY_FOCUS_INDEX, currentFocusIndex).apply()
             recreate()
         }
 
@@ -354,6 +367,7 @@ class SettingsActivity : AppCompatActivity() {
             val nextIndex = (currentIndex + 1) % SEARCH_LIMITS.size
             val newLimit = SEARCH_LIMITS[nextIndex]
             prefs.edit().putInt(KEY_SEARCH_LIMIT, newLimit).apply()
+            prefs.edit().putInt(KEY_FOCUS_INDEX, currentFocusIndex).apply()
             recreate()
         }
 
