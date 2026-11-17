@@ -56,4 +56,16 @@
     <string name="toast_unknown_error">Unknown error</string>
     <string name="toast_playback_failed">Playback failed: %s, returning to search results</string>
     <string name="toast_playback_info_failed">Failed to get playback info, returning to search results</string>
+
+    <string name="search_target_label">Search Target</string>
+    <string name="search_target_video">Video</string>
+    <string name="search_target_channel">Channel</string>
+    <string name="searching_channels">Searching channels: %s</string>
+    <string name="search_complete_channels">Search complete: %s found %d channels - %s</string>
+    <string name="searching_videos_in_channel">Loading channel videos…</string>
+
+    <string name="channel_page_badge">Channels</string>
+    <string name="channel_search_hint">Search YouTube channels…</string>
+
+    <string name="toast_press_back_again">Press back again to exit</string>
 </resources>

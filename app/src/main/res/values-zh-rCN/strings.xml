@@ -56,4 +56,16 @@
     <string name="toast_unknown_error">未知错误</string>
     <string name="toast_playback_failed">播放失败：%s，将返回搜索结果页面</string>
     <string name="toast_playback_info_failed">无法获取播放资讯，将返回搜索结果页面</string>
+
+    <string name="search_target_label">搜索目标</string>
+    <string name="search_target_video">影片</string>
+    <string name="search_target_channel">频道</string>
+    <string name="searching_channels">正在搜索频道：%s</string>
+    <string name="search_complete_channels">搜索完成：%s 找到 %d 个频道 - %s</string>
+    <string name="searching_videos_in_channel">正在载入该频道影片…</string>
+
+    <string name="channel_page_badge">频道</string>
+    <string name="channel_search_hint">搜索 YouTube 频道…</string>
+
+    <string name="toast_press_back_again">再按一次返回键退出</string>
 </resources>

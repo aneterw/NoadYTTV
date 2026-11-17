@@ -28,22 +28,24 @@ class SettingsActivity : AppCompatActivity() {
 
     private val PREF_FILE = "player_settings"
         private val KEY_SUBTITLE = "pref_subtitle"
-        private val KEY_RESOLUTION = "pref_resolution"
-        private val KEY_LANGUAGE = "pref_language"
-        private val KEY_AUTO_PLAY = "pref_auto_play_next"
-        private val KEY_SEARCH_LIMIT = "pref_search_limit"
-        private val KEY_FOCUS_INDEX = "pref_focus_index"
+            private val KEY_RESOLUTION = "pref_resolution"
+            private val KEY_LANGUAGE = "pref_language"
+            private val KEY_AUTO_PLAY = "pref_auto_play_next"
+            private val KEY_SEARCH_LIMIT = "pref_search_limit"
+            private val KEY_SEARCH_TARGET = "pref_search_target"
+            private val KEY_FOCUS_INDEX = "pref_focus_index"
 
-        private lateinit var prefs: SharedPreferences
-        private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=搜尋上限, 4=自動播放, 5=返回主頁
+            private lateinit var prefs: SharedPreferences
+            private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=搜尋上限, 4=自動播放, 5=搜尋標的, 6=返回主頁
 
-    // 焦點項目引用
-    private lateinit var subtitleRow: LinearLayout
-    private lateinit var resolutionRow: LinearLayout
-    private lateinit var languageRow: LinearLayout
-    private lateinit var searchLimitRow: LinearLayout
-    private lateinit var autoPlayRow: LinearLayout
-    private lateinit var btnBack: Button
+        // 焦點項目引用
+        private lateinit var subtitleRow: LinearLayout
+        private lateinit var resolutionRow: LinearLayout
+        private lateinit var languageRow: LinearLayout
+        private lateinit var searchLimitRow: LinearLayout
+        private lateinit var autoPlayRow: LinearLayout
+        private lateinit var searchTargetRow: LinearLayout
+        private lateinit var btnBack: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,6 +88,7 @@ class SettingsActivity : AppCompatActivity() {
         languageRow = buildSettingRow(getString(R.string.language_label), getCurrentLanguageLabel(), 2)
         searchLimitRow = buildSettingRow(getString(R.string.search_limit_label), getCurrentSearchLimitLabel(), 3)
         autoPlayRow = buildSettingRow(getString(R.string.auto_play_next), getAutoPlayLabel(), 4)
+        searchTargetRow = buildSettingRow(getString(R.string.search_target_label), getCurrentSearchTargetLabel(), 5)
 
         btnBack = Button(this).apply {
             text = getString(R.string.settings_back_home)
@@ -100,7 +103,7 @@ class SettingsActivity : AppCompatActivity() {
             setFocusable(true)
             setFocusableInTouchMode(true)
             setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) currentFocusIndex = 5
+                if (hasFocus) currentFocusIndex = 6
                 updateFocusVisual()
             }
             setOnClickListener {
@@ -114,6 +117,7 @@ class SettingsActivity : AppCompatActivity() {
         menu.addView(languageRow)
         menu.addView(searchLimitRow)
         menu.addView(autoPlayRow)
+        menu.addView(searchTargetRow)
         menu.addView(btnBack)
 
         root.addView(menu)
@@ -128,7 +132,8 @@ class SettingsActivity : AppCompatActivity() {
                     2 -> languageRow.requestFocus()
                     3 -> searchLimitRow.requestFocus()
                     4 -> autoPlayRow.requestFocus()
-                    5 -> btnBack.requestFocus()
+                    5 -> searchTargetRow.requestFocus()
+                    6 -> btnBack.requestFocus()
                 }
             }
 
@@ -193,6 +198,7 @@ class SettingsActivity : AppCompatActivity() {
                 2 -> toggleLanguage()
                 3 -> toggleSearchLimit()
                 4 -> toggleAutoPlay()
+                5 -> toggleSearchTarget()
             }
         }
 
@@ -209,7 +215,7 @@ class SettingsActivity : AppCompatActivity() {
 
     // 更新焦點視覺：當前焦點項目背景變亮黃
     private fun updateFocusVisual() {
-        val rows = arrayOf(subtitleRow, resolutionRow, languageRow, searchLimitRow, autoPlayRow, btnBack)
+        val rows = arrayOf(subtitleRow, resolutionRow, languageRow, searchLimitRow, autoPlayRow, searchTargetRow, btnBack)
 
         rows.forEachIndexed { index, view ->
             val isFocused = index == currentFocusIndex
@@ -236,7 +242,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun moveFocus(delta: Int) {
-        val total = 6  // 字幕, 解析度, 語言, 搜尋上限, 自動播放, 返回主頁
+        val total = 7  // 字幕, 解析度, 語言, 搜尋上限, 自動播放, 搜尋標的, 返回主頁
         currentFocusIndex = (currentFocusIndex + delta + total) % total
         updateFocusVisual()
 
@@ -246,7 +252,8 @@ class SettingsActivity : AppCompatActivity() {
             2 -> languageRow.requestFocus()
             3 -> searchLimitRow.requestFocus()
             4 -> autoPlayRow.requestFocus()
-            5 -> btnBack.requestFocus()
+            5 -> searchTargetRow.requestFocus()
+            6 -> btnBack.requestFocus()
         }
     }
 
@@ -371,12 +378,27 @@ class SettingsActivity : AppCompatActivity() {
             recreate()
         }
 
+        // 搜尋標的：影片 / 頻道（循環切換）
+        private val SEARCH_TARGETS = listOf("video", "channel")
+        private fun getCurrentSearchTargetLabel(): String {
+            return when (prefs.getString(KEY_SEARCH_TARGET, "video")) {
+                "channel" -> getString(R.string.search_target_channel)
+                else -> getString(R.string.search_target_video)
+            }
+        }
+        private fun toggleSearchTarget() {
+            val current = prefs.getString(KEY_SEARCH_TARGET, "video") ?: "video"
+            val next = if (current == "video") "channel" else "video"
+            prefs.edit().putString(KEY_SEARCH_TARGET, next).apply()
+            prefs.edit().putInt(KEY_FOCUS_INDEX, currentFocusIndex).apply()
+            recreate()
+        }
+
         private fun goBackToMain() {
-        val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        startActivity(intent)
-        finish()
-    }
+            val target = prefs.getString(KEY_SEARCH_TARGET, "video")
+            // 終止設定頁面，讓上層 Activity 的 onResume 根據最新偏好決定顯示內容
+            finish()
+        }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
             when (keyCode) {
@@ -397,7 +419,8 @@ class SettingsActivity : AppCompatActivity() {
                         2 -> toggleLanguage()
                         3 -> toggleSearchLimit()
                         4 -> toggleAutoPlay()
-                        5 -> goBackToMain()
+                        5 -> toggleSearchTarget()
+                        6 -> goBackToMain()
                     }
                     return true
                 }

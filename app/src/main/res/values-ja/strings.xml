@@ -56,4 +56,16 @@
     <string name="toast_unknown_error">不明なエラー</string>
     <string name="toast_playback_failed">再生に失敗しました：%s、検索結果に戻ります</string>
     <string name="toast_playback_info_failed">再生情報を取得できませんでした、検索結果に戻ります</string>
+
+    <string name="search_target_label">検索対象</string>
+    <string name="search_target_video">動画</string>
+    <string name="search_target_channel">チャンネル</string>
+    <string name="searching_channels">チャンネルを検索中：%s</string>
+    <string name="search_complete_channels">検索完了：%s %d 件のチャンネル - %s</string>
+    <string name="searching_videos_in_channel">チャンネルの動画を読み込み中…</string>
+
+    <string name="channel_page_badge">チャンネル</string>
+    <string name="channel_search_hint">YouTube チャンネルを検索…</string>
+
+    <string name="toast_press_back_again">再度バックキーで終了</string>
 </resources>

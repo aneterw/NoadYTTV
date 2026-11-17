@@ -56,4 +56,16 @@
     <string name="toast_unknown_error">Error desconocido</string>
     <string name="toast_playback_failed">Fallo de reproducción: %s, volviendo a los resultados de búsqueda</string>
     <string name="toast_playback_info_failed">No se pudo obtener la información de reproducción, volviendo a los resultados de búsqueda</string>
+
+    <string name="search_target_label">Objetivo de búsqueda</string>
+    <string name="search_target_video">Video</string>
+    <string name="search_target_channel">Canal</string>
+    <string name="searching_channels">Buscando canales: %s</string>
+    <string name="search_complete_channels">Búsqueda completa: %s encontré %d canales - %s</string>
+    <string name="searching_videos_in_channel">Cargando vídeos del canal…</string>
+
+    <string name="channel_page_badge">Canales</string>
+    <string name="channel_search_hint">Buscar canales de YouTube…</string>
+
+    <string name="toast_press_back_again">Presiona atrás de nuevo para salir</string>
 </resources>

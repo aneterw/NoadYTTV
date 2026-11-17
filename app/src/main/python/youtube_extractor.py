@@ -702,3 +702,139 @@ def get_target_video_url_web(client_version: str = '19.29.1') -> str:
 
 # 全局狀態：記錄最近一次目標影片 ID（供 web client fallback 使用）
 _last_target_video_id = ""
+
+# ═══════════════════════════════════════════════════════════
+# 頻道搜尋模組（_channel_search.py 獨立邏輯，不影響影片搜尋）
+# ═══════════════════════════════════════════════════════════
+
+def _extract_best_avatar(thumbnails: list) -> Optional[str]:
+    """從 thumbnails 列表選取最佳大頭貼（square，優先 uncropped）"""
+    if not thumbnails:
+        return None
+    for t in thumbnails:
+        if t.get("id") == "avatar_uncropped":
+            return t.get("url")
+    avatars = [
+        t for t in thumbnails
+        if t.get("width") and t.get("height") and t["width"] == t["height"]
+    ]
+    if avatars:
+        return max(avatars, key=lambda x: x["width"]).get("url")
+    return thumbnails[-1].get("url")
+
+
+def _fetch_single_channel_details(basic_info: dict) -> dict:
+    """取得單一頻道的詳細資訊（訂閱數、簡介、大頭貼）」"""
+    ch_id = basic_info["channel_id"]
+    url = f"https://www.youtube.com/channel/{ch_id}"
+    opts = {
+        "extractor_args": {"youtube": {"player_client": ["ios", "android_tv_embedded"], "client_version": "19.29.1"}},
+        "extract_flat": True,
+        "playlistend": 1,
+        "quiet": True,
+        "no_warnings": True,
+        "ignoreerrors": True,
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        try:
+            info = ydl.extract_info(url, download=False)
+            thumbs = info.get("thumbnails", [])
+            return {
+                "channel_id": ch_id,
+                "title": basic_info["title"],
+                "follower_count": info.get("channel_follower_count"),
+                "description": (info.get("description") or "").strip(),
+                "thumbnail": _extract_best_avatar(thumbs),
+            }
+        except Exception as e:
+            print(f"[Channel] 抓取 {basic_info['title']} 失敗: {e}")
+            return {
+                "channel_id": ch_id, "title": basic_info["title"],
+                "follower_count": None, "description": "", "thumbnail": None,
+            }
+
+
+def search_channels(keyword: str, max_results: int = 40) -> str:
+    """搜尋 YouTube 頻道，回傳 JSON 字串（格式與 search_videos 一致）"""
+    print(f"搜尋頻道：{keyword}，上限 {max_results} 個...")
+    # 擴大搜尋基數以確保去重後能湊滿 max_results 筆
+    search_limit = max_results * 5
+    search_query = f"ytsearch{search_limit}:{keyword}"
+    opts = {
+        "extractor_args": {"youtube": {"player_client": ["ios", "android_tv_embedded"], "client_version": "19.29.1"}},
+        "extract_flat": True,
+        "quiet": True,
+        "no_warnings": True,
+        "timeout": 15,
+    }
+    seen_ids: set = set()
+    basics: list = []
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        result = ydl.extract_info(search_query, download=False) or {}
+        for entry in result.get("entries", []) or []:
+            if not entry:
+                continue
+            cid = entry.get("channel_id")
+            name = entry.get("channel") or entry.get("uploader", "")
+            if cid and cid not in seen_ids:
+                seen_ids.add(cid)
+                basics.append({"title": name, "channel_id": cid})
+                if len(basics) >= max_results:
+                    break
+    print(f"已找到 {len(basics)} 個頻道，逐一抓詳情...")
+    results = [None] * len(basics)
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        future_to_idx = {
+            executor.submit(_fetch_single_channel_details, ch): i
+            for i, ch in enumerate(basics)
+        }
+        for future in concurrent.futures.as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            results[idx] = future.result()
+    return json.dumps(results, ensure_ascii=False)
+
+
+def get_channel_videos(channel_url: str, max_videos: int = 40) -> str:
+    """抓取指定頻道最新影片，回傳 VideoSearchResult 格式的 JSON 字串"""
+    clean_url = channel_url.strip().rstrip("/")
+    if not clean_url.endswith("/videos"):
+        clean_url += "/videos"
+    base_url = channel_url.strip().rstrip("/")
+    opts = {
+        "extractor_args": {"youtube": {"player_client": ["ios", "android_tv_embedded"], "client_version": "19.29.1"}},
+        "extract_flat": True,
+        "playlistend": max_videos,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    videos: list = []
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        try:
+            info = ydl.extract_info(clean_url, download=False)
+            chan_name = info.get("channel") or info.get("uploader") or info.get("title", "")
+            for entry in (info.get("entries") or []):
+                if not entry:
+                    continue
+                vid_id = entry.get("id")
+                dur = entry.get("duration") or 0
+                h, rem = divmod(dur, 3600)
+                m, s = divmod(rem, 60)
+                dur_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
+                thumb_list = entry.get("thumbnails") or []
+                thumb = thumb_list[-1].get("url") if thumb_list else None
+                videos.append({
+                    "id": vid_id,
+                    "title": entry.get("title", ""),
+                    "duration": dur,
+                    "thumbnail": thumb,
+                    "channel": chan_name,
+                    "channel_id": "",
+                    "view_count": None,
+                    "url": f"https://www.youtube.com/watch?v={vid_id}",
+                    "upload_date": None,
+                    "_dur_str": dur_str,   # Android 端顯示用，不影響 VideoSearchResult
+                })
+        except Exception as e:
+            print(f"[ChannelVideos] 錯誤: {e}")
+    return json.dumps(videos, ensure_ascii=False)

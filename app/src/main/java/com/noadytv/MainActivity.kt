@@ -56,6 +56,8 @@ class MainActivity : ComponentActivity() {
         private var lastSearchQuery = ""
         private var clearSearchJob: Job? = null
         private var lastSelectedView: View? = null
+        private var lastBackPressTime = 0L
+        companion object { private const val BACK_PRESS_TIMEOUT = 2000L }
 
         // 搜尋歷史（本地持久化）
         private val searchHistory = mutableListOf<String>()
@@ -242,7 +244,13 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onBackPressed() {
-        super.onBackPressed()
+        val now = System.currentTimeMillis()
+        if (now - lastBackPressTime < BACK_PRESS_TIMEOUT) {
+            super.onBackPressed()
+        } else {
+            lastBackPressTime = now
+            Toast.makeText(this, getString(R.string.toast_press_back_again), Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onResume() {
@@ -253,6 +261,15 @@ class MainActivity : ComponentActivity() {
             val c = current?.replace("_", "-")?.lowercase() ?: ""
             if (s != c) {
                 recreate()
+                return
+            }
+            // 每次回到主頁都檢查搜尋標的設定，若為頻道模式自動轉往頻道搜尋頁（確保從任何路徑返回都正確）
+            val targetPrefs = getSharedPreferences("player_settings", MODE_PRIVATE)
+            if ("channel" == targetPrefs.getString("pref_search_target", "video")) {
+                startActivity(Intent(this, com.noadytv.channel.ChannelSearchActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                finish()
+                return
             }
         }
 

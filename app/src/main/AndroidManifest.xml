@@ -51,6 +51,13 @@
             android:theme="@style/Theme.NoadYTTV" />
 
         <activity
+            android:name=".channel.ChannelSearchActivity"
+            android:exported="false"
+            android:label="頻道搜尋"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.NoadYTTV" />
+
+        <activity
             android:name=".settings.SettingsActivity"
             android:exported="false"
             android:label="設定"

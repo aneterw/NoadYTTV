@@ -56,4 +56,16 @@
     <string name="toast_unknown_error">알 수 없는 오류</string>
     <string name="toast_playback_failed">재생에 실패했습니다: %s, 검색 결과로 돌아갑니다</string>
     <string name="toast_playback_info_failed">재생 정보를 가져올 수 없습니다, 검색 결과로 돌아갑니다</string>
+
+    <string name="search_target_label">검색 대상</string>
+    <string name="search_target_video">동영상</string>
+    <string name="search_target_channel">채널</string>
+    <string name="searching_channels">채널 검색 중: %s</string>
+    <string name="search_complete_channels">검색 완료: %s %d개 채널 - %s</string>
+    <string name="searching_videos_in_channel">채널 영상 로딩 중…</string>
+
+    <string name="channel_page_badge">채널</string>
+    <string name="channel_search_hint">YouTube 채널 검색…</string>
+
+    <string name="toast_press_back_again">한 번 더 뒤로 가면 종료됩니다</string>
 </resources>
