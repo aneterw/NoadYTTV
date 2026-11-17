@@ -16,10 +16,10 @@ android {
                 versionName = "0.7.6"
                 testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-            ndk {
-                abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+                ndk {
+                    abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+                }
             }
-        }
 
     buildTypes {
         release {
