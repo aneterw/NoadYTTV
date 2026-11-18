@@ -37,12 +37,23 @@ jobs:
       - name: Assemble Release APK
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Install apksigner (build-tools 34.0.0)
+      - name: Install apksigner (use pre-installed Android SDK)
         run: |
-          mkdir -p /tmp/bt && cd /tmp/bt
-          wget -q -O build-tools.zip "https://dl.google.com/android/repository/build-tools_r34.0.0-linux.zip"
-          unzip -q build-tools.zip
-          sudo ln -sf /tmp/bt/build-tools-34.0.0/bin/apksigner /usr/local/bin/apksigner
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          # Try common pre-installed locations
+          for path in \
+            "$ANDROID_HOME/build-tools/34.0.0/apksigner" \
+            "$ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner" \
+            "/usr/lib/android-sdk/build-tools/34.0.0/apksigner" \
+            ; do
+            if [ -f "$path" ]; then
+              echo "Found apksigner at $path"
+              sudo ln -sf "$path" /usr/local/bin/apksigner
+              break
+            fi
+          done
+          command -v apksigner || { echo "apksigner not found in any location"; exit 1; }
 
       - name: Sign APK (jarsigner + apksigner v2/v3)
         env:
