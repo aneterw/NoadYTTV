@@ -39,12 +39,10 @@ jobs:
 
       - name: Install apksigner (build-tools 34.0.0)
         run: |
-          mkdir -p /tmp/cmdtools/cmdline-tools/latest && cd /tmp/cmdtools
-          wget -q -O cmdtools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
-          unzip -q cmdtools.zip -d cmdline-tools/latest
-          yes | ./cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1 || true
-          ./cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
-          sudo ln -sf /tmp/cmdtools/cmdline-tools/latest/bin/apksigner /usr/local/bin/apksigner
+          mkdir -p /tmp/bt && cd /tmp/bt
+          wget -q -O build-tools.zip "https://dl.google.com/android/repository/build-tools_r34.0.0-linux.zip"
+          unzip -q build-tools.zip
+          sudo ln -sf /tmp/bt/build-tools-34.0.0/bin/apksigner /usr/local/bin/apksigner
 
       - name: Sign APK (jarsigner + apksigner v2/v3)
         env:
