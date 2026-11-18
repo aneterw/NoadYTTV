@@ -88,60 +88,55 @@ class ChannelSearchActivity : ComponentActivity() {
     private lateinit var searchInput: EditText
     private lateinit var resultsGrid: GridView
 
-    // ── Activity Result（相同模式：从 PlayerActivity 返回）
+    // ── Activity Result（相同模式：从 PlayerActivity 返回）─────────────────
     private val playerActivityLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         isReturningFromPlayer = false
-        if (result.resultCode == RESULT_OK) {
-            // 先讀取 pending 標記（還沒被清除），再用它決定是否恢復影片列表
-            val wasPlayerReturnPending = isPlayerReturnPending
-            isPlayerReturnPending = false  // 立即清除，避免後續誤用
-            val position = result.data?.getIntExtra("position", selectedPosition) ?: selectedPosition
-            android.util.Log.d("ChannelSearch", "playerReturn: resultCode=${result.resultCode}, videoAdapter=${currentVideoAdapter != null}, channelAdapter=${currentChannelAdapter != null}, currentLayer=$currentLayer, position=$position, wasPending=$wasPlayerReturnPending")
-            // 只有在有 pending 標記時才恢復影片列表（代表真的從播放器回來）
-            if (wasPlayerReturnPending && currentVideoAdapter != null) {
-                // 播放器一定從 L2 開啟，直接恢復影片列表即可
-                val grid = findViewById<GridView>(R.id.results_grid)
-                grid.post {
-                    try {
-                        currentLayer = 2
-                        resultsGrid.adapter = currentVideoAdapter
-                        // 恢復 L2 的 click/selected 監聽器（播放影片 + 標題轉黃）
-                        resultsGrid.onItemClickListener = android.widget.AdapterView.OnItemClickListener { _, _, position, _ ->
-                            android.util.Log.d("ChannelSearch", "L2 itemClick after playerReturn: position=$position")
-                            if (position >= 0 && position < channelVideoList.size) {
-                                playVideo(channelVideoList[position], position)
-                            }
+        isPlayerReturnPending = false  // 立即清除，避免後續誤用
+        val position = result.data?.getIntExtra("position", selectedPosition) ?: selectedPosition
+        android.util.Log.d("ChannelSearch", "playerReturn: resultCode=${result.resultCode}, videoAdapter=${currentVideoAdapter != null}, channelAdapter=${currentChannelAdapter != null}, currentLayer=$currentLayer, position=$position")
+        // 只要還有影片列表快取，就恢復 L2（影片列表），不受 resultCode 或 pending 標記限制
+        // 這樣即使播放器因錯誤/自動播放結束而非預期 finish，也不會誤落回搜索框
+        if (currentVideoAdapter != null) {
+            // 播放器一定從 L2 開啟，直接恢復影片列表即可
+            val grid = findViewById<GridView>(R.id.results_grid)
+            grid.post {
+                try {
+                    currentLayer = 2
+                    resultsGrid.adapter = currentVideoAdapter
+                    // 恢復 L2 的 click/selected 監聽器（播放影片 + 標題轉黃）
+                    resultsGrid.onItemClickListener = android.widget.AdapterView.OnItemClickListener { _, _, position, _ ->
+                        android.util.Log.d("ChannelSearch", "L2 itemClick after playerReturn: position=$position")
+                        if (position >= 0 && position < channelVideoList.size) {
+                            playVideo(channelVideoList[position], position)
                         }
-                        resultsGrid.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
-                                highlightVideo(view)
-                            }
-                            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {
-                                resetLastVideoHighlight()
-                            }
-                        }
-                        android.util.Log.d("ChannelSearch", "playerReturn restore L2: adapter=video, layer=2")
-                        resultsGrid.post {
-                            resultsGrid.setSelection(position)
-                            resultsGrid.requestFocus()
-                            // 不呼叫 searchInput.requestFocus()，保持焦點在影片方格
-                            // 還原當時的影片狀態列文字（包含耗時）
-                            if (L2_statusText.isNotBlank()) findViewById<TextView>(R.id.searching_text).text = L2_statusText
-                            findViewById<TextView>(R.id.searching_text).visibility = View.VISIBLE
-                        }
-                    } catch (_: Exception) {
-                        searchInput.requestFocus()
                     }
+                    resultsGrid.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                        override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
+                            highlightVideo(view)
+                        }
+                        override fun onNothingSelected(parent: android.widget.AdapterView<*>) {
+                            resetLastVideoHighlight()
+                        }
+                    }
+                    android.util.Log.d("ChannelSearch", "playerReturn restore L2: adapter=video, layer=2")
+                    resultsGrid.post {
+                        resultsGrid.setSelection(position.coerceAtLeast(0))
+                        resultsGrid.requestFocus()
+                        // 不呼叫 searchInput.requestFocus()，保持焦點在影片方格
+                        // 還原當時的影片狀態列文字（包含耗時）
+                        if (L2_statusText.isNotBlank()) findViewById<TextView>(R.id.searching_text).text = L2_statusText
+                        findViewById<TextView>(R.id.searching_text).visibility = View.VISIBLE
+                    }
+                } catch (_: Exception) {
+                    searchInput.requestFocus()
                 }
-            } else {
-                android.util.Log.d("ChannelSearch", "playerReturn ignored: layer=$currentLayer, videoAdapter=${currentVideoAdapter != null}, wasPending=$wasPlayerReturnPending")
-                // 不在 L2（可能已按返回鍵回到 L1），或沒有影片緩存 → 聚焦搜索框
-                searchInput.requestFocus()
             }
         } else {
-            findViewById<EditText>(R.id.search_input).requestFocus()
+            // 沒有影片緩存 → 聚焦搜索框
+            android.util.Log.d("ChannelSearch", "playerReturn ignored: no videoAdapter, currentLayer=$currentLayer")
+            searchInput.requestFocus()
         }
     }
 
@@ -755,7 +750,7 @@ class ChannelSearchActivity : ComponentActivity() {
             lastBackPressTime = now
             Toast.makeText(this, getString(R.string.toast_press_back_again), Toast.LENGTH_SHORT).show()
         }
-        return false
+        return true  // 已處理返回鍵，避免 onBackPressed 調用 super.onBackPressed() 直接 finish 回主頁
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

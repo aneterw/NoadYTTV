@@ -93,7 +93,12 @@ class PlayerActivity : ComponentActivity() {
                 }
 
                 // 2. 取得播放資訊
-                val result = viewModel.getPlaybackInfo(videoId, savedSubtitle)
+                val result = try {
+                    viewModel.getPlaybackInfo(videoId, savedSubtitle)
+                } catch (e: Exception) {
+                    android.util.Log.e("NoadYTTV_Player", "getPlaybackInfo threw: ${e.message}")
+                    Result.failure(e)
+                }
                 if (result.isSuccess) {
                     val playbackInfo = result.getOrNull()
                     if (playbackInfo != null) {
@@ -256,7 +261,7 @@ class PlayerActivity : ComponentActivity() {
                     runOnUiThread {
                         Toast.makeText(
                             this@PlayerActivity,
-                            getString(R.string.toast_playback_failed, "錯誤：$error"),
+                            getString(R.string.toast_playback_failed, error),
                             Toast.LENGTH_LONG
                         ).show()
                         val resultIntent = Intent()
@@ -599,13 +604,24 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            val intent = Intent()
-            intent.putExtra("position", intent.getIntExtra("position", -1))
-            setResult(RESULT_OK, intent)
+            val resultIntent = Intent()
+            // 必須讀 Activity 的啟動 Intent（this.intent），不能讀剛新建的空 resultIntent
+            val pos = this.intent.getIntExtra("position", -1)
+            resultIntent.putExtra("position", pos)
+            setResult(RESULT_OK, resultIntent)
             finish()
             return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    /** 部分 TV 裝置會觸發 onBackPressed 而非 onKeyDown，統一委託給 onKeyDown 確保 setResult(RESULT_OK) */
+    override fun onBackPressed() {
+        val backEvent = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK)
+        if (onKeyDown(KeyEvent.KEYCODE_BACK, backEvent)) {
+            return
+        }
+        super.onBackPressed()
     }
 
     override fun onDestroy() {
