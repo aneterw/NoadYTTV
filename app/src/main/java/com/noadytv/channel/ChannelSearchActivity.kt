@@ -77,6 +77,8 @@ class ChannelSearchActivity : ComponentActivity() {
 
     // Layer 2 時存放當前頻道的影片列表（與 MainViewModel.searchResults 平行）
     private var channelVideoList: List<VideoSearchResult> = emptyList()
+    // Layer 1 時存放當前頻道列表（供 back handler 回到 L1 時恢復 click 監聽器）
+    private var currentChannelList: List<ChannelSearchResult> = emptyList()
 
     // ── 搜尋歷史（key="channel_search_history"，與影片歷史隔離）
     private val channelSearchHistory = mutableListOf<String>()
@@ -105,12 +107,26 @@ class ChannelSearchActivity : ComponentActivity() {
                     try {
                         currentLayer = 2
                         resultsGrid.adapter = currentVideoAdapter
+                        // 恢復 L2 的 click/selected 監聽器（播放影片 + 標題轉黃）
+                        resultsGrid.onItemClickListener = android.widget.AdapterView.OnItemClickListener { _, _, position, _ ->
+                            android.util.Log.d("ChannelSearch", "L2 itemClick after playerReturn: position=$position")
+                            if (position >= 0 && position < channelVideoList.size) {
+                                playVideo(channelVideoList[position], position)
+                            }
+                        }
+                        resultsGrid.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
+                                highlightVideo(view)
+                            }
+                            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {
+                                resetLastVideoHighlight()
+                            }
+                        }
                         android.util.Log.d("ChannelSearch", "playerReturn restore L2: adapter=video, layer=2")
-                        resultsGrid.onItemSelectedListener = null
                         resultsGrid.post {
                             resultsGrid.setSelection(position)
                             resultsGrid.requestFocus()
-                            searchInput.requestFocus()
+                            // 不呼叫 searchInput.requestFocus()，保持焦點在影片方格
                             // 還原當時的影片狀態列文字（包含耗時）
                             if (L2_statusText.isNotBlank()) findViewById<TextView>(R.id.searching_text).text = L2_statusText
                             findViewById<TextView>(R.id.searching_text).visibility = View.VISIBLE
@@ -188,6 +204,7 @@ class ChannelSearchActivity : ComponentActivity() {
                         emptyState.visibility = View.GONE
                         val chAdapter = ChannelAdapter(this@ChannelSearchActivity, channels, imageLoader!!)
                         currentChannelAdapter = chAdapter
+                        currentChannelList = channels  // 儲存頻道列表供 back handler 恢復 click 監聽器
                         resultsGrid.adapter = chAdapter
                         // Channel click → 進入 L2（載入該頻道的影片列表）
                         resultsGrid.onItemClickListener = android.widget.AdapterView.OnItemClickListener { _, _, position, _ ->
@@ -704,12 +721,25 @@ class ChannelSearchActivity : ComponentActivity() {
                 android.util.Log.d("ChannelSearch", "backHandler(L2→L1): restoring channel adapter, position=$savedChannelPosition")
                 // 恢復 L1 頻道列表
                 resultsGrid.adapter = currentChannelAdapter
-                resultsGrid.onItemSelectedListener = null
+                // 恢復 L1 的 click/selected 監聽器（進入頻道 + 標題轉黃）
+                resultsGrid.onItemClickListener = android.widget.AdapterView.OnItemClickListener { _, _, position, _ ->
+                    if (position >= 0 && position < currentChannelList.size) {
+                        enterChannel(currentChannelList[position], position)
+                    }
+                }
+                resultsGrid.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
+                        highlightChannel(view)
+                    }
+                    override fun onNothingSelected(parent: android.widget.AdapterView<*>) {
+                        resetLastChannelHighlight()
+                    }
+                }
                 val selPos = savedChannelPosition.takeIf { it >= 0 } ?: 0
                 resultsGrid.post {
                     resultsGrid.setSelection(selPos)
                     resultsGrid.requestFocus()
-                    searchInput.requestFocus()
+                    // 不呼叫 searchInput.requestFocus()，保持焦點在頻道方格
                     // 還原 L1 當時的狀態列（含耗時 + 關鍵字），完全不重新計時
                     if (L1_statusText.isNotBlank()) findViewById<TextView>(R.id.searching_text).text = L1_statusText
                     findViewById<TextView>(R.id.searching_text).visibility = View.VISIBLE
