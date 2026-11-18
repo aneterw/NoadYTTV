@@ -71,6 +71,8 @@ class PlayerActivity : ComponentActivity() {
             useController = true
         }
         setContentView(playerView)
+        // 播放期間禁止螢幕鎖定/保護銀幕，避免長片觀看中斷
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val videoId = intent.getStringExtra("videoId") ?: ""
         val videoTitle = intent.getStringExtra("videoTitle") ?: ""

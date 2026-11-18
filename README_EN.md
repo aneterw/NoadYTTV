@@ -1,6 +1,6 @@
 # NoadYTTV - Android TV YouTube Client
 
-> 🔄 [Switch to Traditional Chinese](./README.md)
+> 🔄 [切換至繁體中文](./README.md)
 
 ---
 
@@ -147,4 +147,4 @@ This software is for personal use only. Commercial distribution or resale is pro
 
 ---
 
-> 🔄 [Switch to Traditional Chinese](./README.md)
+> 🔄 [切換至繁體中文](./README.md)

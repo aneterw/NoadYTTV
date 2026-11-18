@@ -698,6 +698,12 @@ class ChannelSearchActivity : ComponentActivity() {
         val saved = AppLocale.getSavedLocale(this)
         val current = resources.configuration.locale?.toLanguageTag()
         if (saved.replace("_", "-").lowercase() != current?.replace("_", "-")?.lowercase()) recreate()
+        // 搜尋標的若已切回「影片」，離開頻道頁回到影片主頁（避免從設定返回後仍停留在頻道）
+        val targetPrefs = getSharedPreferences("player_settings", MODE_PRIVATE)
+        if ("video" == targetPrefs.getString("pref_search_target", "video")) {
+            finish()
+            return
+        }
     }
 
     override fun onDestroy() {

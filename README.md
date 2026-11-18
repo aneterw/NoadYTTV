@@ -1,6 +1,6 @@
 # NoadYTTV - Android TV YouTube 客戶端
 
-> 🔄 [切換至英文版](./README_EN.md)
+> 🔄 [Switch to English version](./README_EN.md)
 
 ---
 
@@ -147,4 +147,4 @@ app/src/main/
 
 ---
 
-> 🔄 [切換至英文版](./README_EN.md)
+> 🔄 [Switch to English version](./README_EN.md)
