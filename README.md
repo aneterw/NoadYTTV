@@ -1,90 +1,53 @@
-# NoadYTTV - Android TV YouTube Client
+# NoadYTTV - Android TV YouTube 客戶端
 
-A third-party YouTube TV client for Android TV built with:
-- **Kotlin** + **Jetpack Compose for TV**
-- **Chaquopy 17.2** for Python integration
-- **yt-dlp** for video extraction (ad-free streaming)
-- **ExoPlayer (Media3)** for playback
-- **Koin** for dependency injection
+> 🔄 [切換至英文版](./README_EN.md)
 
-## Features
+---
 
-- 🔍 **Search YouTube** videos with remote-friendly UI
-- 📺 **TV-optimized UI** with focus navigation (D-pad support)
-- ▶️ **Ad-free playback** via yt-dlp direct stream extraction
-- 🎮 **Full player controls**: Play/Pause, Stop, Next/Previous, Quality, Subtitles, Audio tracks
-- 📱 **Leanback launcher** support for Android TV
-- 🚫 **Zero dependencies** on Google Play Services / YouTube API
+## 一、為什麼開發這個軟件？
 
-## Architecture
+我們通常使用 YouTube，是為了進行個人化的搜尋、獲得更好的觀看體驗，或享有更便利的功能。但我們追求的是：**一個簡單、直接的搜尋體驗——想搜尋什麼影片，就直接看什麼影片**。
 
-```
-app/
-├── src/main/
-│   ├── java/com/noadytv/
-│   │   ├── python/          # Chaquopy bridge (YouTubePythonBridge)
-│   │   ├── data/            # Repository (YouTubeRepository)
-│   │   ├── player/          # PlayerController, PlayerScreen, Controls
-│   │   ├── ui/
-│   │   │   ├── components/  # SearchBar, VideoCard, VideoGrid
-│   │   │   ├── screen/      # SearchScreen
-│   │   │   └── theme/       # Material3 theme
-│   │   ├── MainActivity.kt
-│   │   └── MainViewModel.kt
-│   ├── python/
-│   │   └── youtube_extractor.py  # yt-dlp wrapper
-│   └── res/                 # Resources (strings, drawables, themes)
-```
+YouTube 正式網站的版面設計常包含各種分類與推薦內容，版面較為混雜。此外，廣告也會干擾觀看體驗。因此我們開發 NoadYTTV，希望：
 
-## Requirements
+- **阻擋煩人的廣告**，提供更純淨的觀看體驗
+- **簡單樸素的操作介面**，避免版面混雜
+- **快速搜尋並播放** 使用者感興趣的影片
+- **加入頻道搜索功能**，讓使用者能更精準地找到感興趣的頻道與影片
 
-- Android Studio Koala (2024.1.1) or later
-- JDK 17+
-- Android SDK 34
-- minSdk 21 (Android 5.0+)
-- targetSdk 34
+### 頻道搜索功能
 
-## Building
+為了提高搜尋效率，我們加入了 **頻道搜索** 功能。該功能更集中地體現頻道特性，根據使用者的搜尋意圖，聚合訂閱量較高、品質相對較好的頻道。無論是日常瀏覽還是網路推薦的知名頻道，都能幫助使用者快速找到相關影片，更精準地匹配個人興趣，獲得最佳的觀影體驗。
 
-### 1. Clone and Open
+---
 
-```bash
-git clone <repo-url>
-cd NoadYTTV
-# Open in Android Studio
-```
+## 二、功能特色
 
-### 2. Gradle Sync
+- 🔍 **YouTube 影片搜尋** — 適用遙控器的 TV 友善介面
+- 📺 **Android TV 最佳化 UI** — 支援 D-pad 焦點導航
+- ▶️ **無廣告播放** — 透過 yt-dlp 直接串流擷取，跳過廣告
+- 🎮 **完整播放控制** — 播放/暫停、停止、上一集/下一集、畫質、字幕、音軌
+- 📱 **Leanback 啟動器支援** — 可在 Android TV 主畫面啟動
+- 🚫 **無需 Google Play Services / YouTube API**
+- 🔎 **頻道搜索** — 聚合高品質頻道，提升搜尋效率
 
-The project uses:
-- **Chaquopy 17.2** Gradle plugin for Python
-- **Kotlin 1.9.24**
-- **Compose BOM 2024.08.00**
+---
 
-Gradle will automatically download Python 3.13 and install `yt-dlp` via pip.
+## 三、技術說明
 
-### 3. Build APK
+NoadYTTV 是一個專為 Android TV 設計的第三方 YouTube 客戶端，採用以下技術堆疊：
 
-```bash
-./gradlew assembleDebug
-# or
-./gradlew assembleRelease
-```
+- **Kotlin + Jetpack Compose for TV** — 現代化 TV 介面開發
+- **Chaquopy 17.2** — Kotlin 與 Python 之間的橋接
+- **yt-dlp** — 影片串流擷取（實現無廣告播放）
+- **ExoPlayer (Media3)** — 影片播放引擎
+- **Koin** — 相依性注入
 
-## How It Works
+### 無廣告播放原理
 
-### Ad-Free Playback
+yt-dlp 會擷取影片的所有可用格式，我們會過濾掉常含廣告的 DASH 串流清單，改為選擇直接的 HTTPS 累進串流（MP4/HLS），由 ExoPlayer 播放。這樣可以繞過 YouTube 在 DASH 層級插入廣告的機制。
 
-The key to ad-free YouTube playback is **yt-dlp's format selection**:
-
-1. yt-dlp extracts all available formats for a video
-2. We filter out DASH manifests (which often contain ads)
-3. We select direct HTTPS progressive streams (MP4/HLS)
-4. ExoPlayer plays the direct stream URL
-
-This bypasses YouTube's ad insertion which happens at the DASH manifest level.
-
-### Python Integration (Chaquopy)
+### Python 與 Kotlin 整合
 
 ```
 Kotlin (YouTubeRepository)
@@ -93,123 +56,95 @@ Kotlin (YouTubePythonBridge)
     ↓ Chaquopy PyObject.callAttr()
 Python (youtube_extractor.YouTubeExtractor)
     ↓ yt_dlp.YoutubeDL
-YouTube → JSON → Kotlin Data Classes
+YouTube → JSON → Kotlin 資料類別
 ```
 
-### Remote Navigation
+---
 
-All UI components support D-pad navigation:
-- `FocusRequester` for programmatic focus
-- `onFocusChanged` for visual feedback (scale, elevation, border)
-- `onKeyEvent` for D-pad Center/Enter/Back handling
+## 四、部署與使用指南
 
-## Configuration
+### 系統需求
 
-### Chaquopy Settings (`app/build.gradle.kts`)
+- Android Studio Koala (2024.1.1) 或更新版本
+- JDK 17+
+- Android SDK 34
+- minSdk 21 (Android 5.0+)
+- targetSdk 34
 
-```kotlin
-chaquopy {
-    defaultConfig {
-        python { version = "3.13" }
-        pip { install("yt-dlp"); install("requests") }
-        pyc { src = false }  // Disable bytecode compilation for faster builds
-    }
-}
-```
-
-### yt-dlp Options (`youtube_extractor.py`)
-
-```python
-ydl_opts = {
-    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-    'extractor_args': {
-        'youtube': {
-            'player_client': ['android', 'web'],
-            'skip': ['dash', 'hls'],  # Skip DASH to avoid ads
-        }
-    },
-}
-```
-
-## Player Controls
-
-Press **D-pad Center/Enter** during playback to show controls:
-
-| Option | Action |
-|--------|--------|
-| 播放/暫停 | Toggle play/pause |
-| 停止 | Stop playback |
-| 上一部 | Previous video in playlist |
-| 下一部 | Next video in playlist |
-| 字幕 | Select subtitle track |
-| 畫質 | Select quality (1080p, 720p, etc.) |
-| 聲音軌 | Select audio track |
-| 影片資訊 | Show video details |
-| 自動播放下一集 | Toggle auto-play next |
-
-## Project Structure Details
-
-### Key Classes
-
-| Class | Responsibility |
-|-------|---------------|
-| `YouTubePythonBridge` | Kotlin↔Python bridge via Chaquopy |
-| `YouTubeRepository` | Data layer with caching |
-| `PlayerController` | ExoPlayer wrapper + playback logic |
-| `PlayerScreen` | Full-screen player Composable |
-| `PlayerControlsOverlay` | D-pad navigable controls menu |
-| `SearchScreen` | Main search/browse UI |
-| `VideoGrid`/`VideoCard` | Focusable video list items |
-
-### Data Models (Serializable)
-
-- `VideoSearchResult` - Search result item
-- `VideoInfo` - Full video metadata + formats + subtitles
-- `VideoFormat` - Individual stream format
-- `QualityOption` - UI quality selector
-- `SubtitleTrack` - Subtitle/caption track
-
-## Testing
+### 步驟 1：複製專案
 
 ```bash
-# Unit tests
-./gradlew test
-
-# Instrumented tests (requires device/emulator)
-./gradlew connectedAndroidTest
+git clone https://github.com/aneterw/NoadYTTV.git
+cd NoadYTTV
+# 在 Android Studio 中開啟
 ```
 
-## Troubleshooting
+### 步驟 2：Gradle 同步
 
-### Chaquopy not initializing
+專案使用以下 Gradle 外掛：
 
-Ensure `NoadYTTVApplication` is in Manifest and `Python.start()` is called.
+- Chaquopy 17.2 (Python 整合)
+- Kotlin 1.9.24
+- Compose BOM 2024.08.00
 
-### yt-dlp extraction fails
+Gradle 會自動下載 Python 3.13，並透過 pip 安裝 `yt-dlp`。
 
-- Check network connectivity
-- yt-dlp may need update: `pip install --upgrade yt-dlp`
-- YouTube changes extractors frequently
+### 步驟 3：建構 APK
 
-### Video won't play
+```bash
+# 建構除錯版本
+./gradlew assembleDebug
 
-- Format URL may have expired (yt-dlp URLs are short-lived)
-- Try different quality/format
-- Check ExoPlayer error logs
+# 或建構發行版本
+./gradlew assembleRelease
+```
 
-### Build fails
+建構完成後，APK 位於：
+- 除錯版：`app/build/outputs/apk/debug/app-debug.apk`
+- 發行版：`app/build/outputs/apk/release/app-release.apk`
 
-- Clean: `./gradlew clean`
-- Invalidate caches in Android Studio
-- Check JDK 17 is used
+### 步驟 4：安裝至 Android TV
 
-## License
+將 APK 複製到 Android TV 裝置並安裝，或透過 ADB 安裝：
 
-This project is for educational purposes. YouTube's Terms of Service apply.
+```bash
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
 
-## Acknowledgments
+### 使用方式
 
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Video extraction
-- [Chaquopy](https://chaquo.com/chaquopy/) - Python on Android
-- [ExoPlayer/Media3](https://developer.android.com/media/media3) - Playback engine
-- [Jetpack Compose for TV](https://developer.android.com/tv/compose) - TV UI toolkit
+1. 開啟 App 後，在搜尋框輸入關鍵字
+2. 選擇想觀看的影片或頻道
+3. 使用遙控器 D-pad 導航，按下確認鍵播放
+4. 播放期間按下 D-pad 確認鍵可顯示控制選單（播放/暫停、畫質、字幕等）
+
+---
+
+## 五、專案結構
+
+```
+app/src/main/
+├── java/com/noadytv/
+│   ├── python/          # Chaquopy 橋接 (YouTubePythonBridge)
+│   ├── data/            # 資料庫層 (YouTubeRepository)
+│   ├── player/          # PlayerController, PlayerScreen, 控制項
+│   ├── ui/
+│   │   ├── components/  # SearchBar, VideoCard, VideoGrid
+│   │   ├── screen/      # SearchScreen
+│   │   └── theme/       # Material3 主題
+│   ├── MainActivity.kt
+│   └── MainViewModel.kt
+├── python/
+│   └── youtube_extractor.py  # yt-dlp 封裝
+└── res/                 # 資源 (字串、可繪物、主題)
+```
+
+---
+
+## 六、授權
+
+本軟件僅供個人使用，禁止用於任何商業傳播或販賣取財。詳見 [LICENSE.md](./LICENSE.md)。
+
+---
+
+> 🔄 [切換至英文版](./README_EN.md)
