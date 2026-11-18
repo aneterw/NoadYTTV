@@ -42,9 +42,9 @@ jobs:
           mkdir -p /tmp/cmdtools && cd /tmp/cmdtools
           wget -q -O cmdtools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
           unzip -q cmdtools.zip
-          yes | ./bin/sdkmanager --licenses >/dev/null 2>&1 || true
-          ./bin/sdkmanager "build-tools;34.0.0"
-          sudo ln -sf /tmp/cmdtools/build-tools/34.0.0/apksigner /usr/local/bin/apksigner
+          yes | ./cmdline-tools/bin/sdkmanager --licenses >/dev/null 2>&1 || true
+          ./cmdline-tools/bin/sdkmanager "build-tools;34.0.0"
+          sudo ln -sf /tmp/cmdtools/cmdline-tools/build-tools/34.0.0/apksigner /usr/local/bin/apksigner
 
       - name: Sign APK (jarsigner + apksigner v2/v3)
         env:
