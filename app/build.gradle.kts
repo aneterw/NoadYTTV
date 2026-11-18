@@ -12,8 +12,8 @@ android {
                 applicationId = "com.noadytv"
                 minSdk = 24
                 targetSdk = 34
-                versionCode = 9
-                versionName = "0.8.3"
+                versionCode = 10
+                versionName = "0.8.4"
                 testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
                 ndk {

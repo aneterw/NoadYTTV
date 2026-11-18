@@ -295,8 +295,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun getCurrentSubtitleLabel(): String {
-        val lang = prefs.getString(KEY_SUBTITLE, "none")
-        return getSubtitleLangLabel(lang ?: "none")
+        val lang = prefs.getString(KEY_SUBTITLE, "auto")
+        return getSubtitleLangLabel(lang ?: "auto")
     }
 
     private fun getSubtitleLangName(code: String): String {

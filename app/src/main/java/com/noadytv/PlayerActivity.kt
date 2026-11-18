@@ -84,7 +84,7 @@ class PlayerActivity : ComponentActivity() {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
                 // 讀取使用者字幕偏好（預設 "none"）
                 val prefs = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
-                val savedSubtitle = prefs.getString(KEY_SUBTITLE, "none") ?: "none"
+                val savedSubtitle = prefs.getString(KEY_SUBTITLE, "auto") ?: "auto"
                 val savedResolution = prefs.getString(KEY_RESOLUTION, "auto") ?: "auto"
 
                 // 1. 取得完整影片資訊（含字幕、解析度列表）
@@ -414,7 +414,7 @@ class PlayerActivity : ComponentActivity() {
 
         // 找字幕軌道
         val prefs = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
-        val savedSubtitle = prefs.getString(KEY_SUBTITLE, "none") ?: "none"
+        val savedSubtitle = prefs.getString(KEY_SUBTITLE, "auto") ?: "auto"
         var subtitleTrackForSwitch: SubtitleTrack? = null
         if (savedSubtitle != "none" && currentVideoInfo != null) {
             val info = currentVideoInfo!!
@@ -498,7 +498,7 @@ class PlayerActivity : ComponentActivity() {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
                 // 讀取使用者字幕偏好（預設 "none"）
                 val prefs = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
-                val savedSubtitle = prefs.getString(KEY_SUBTITLE, "none") ?: "none"
+                val savedSubtitle = prefs.getString(KEY_SUBTITLE, "auto") ?: "auto"
                 // 並行抓取影片資訊與播放連結，避免串流請求串行延遲
                 val infoDeferred = async(Dispatchers.IO) { viewModel.getVideoInfo(nextId, savedSubtitle) }
                 val playDeferred = async(Dispatchers.IO) { viewModel.getPlaybackInfo(nextId, savedSubtitle) }
