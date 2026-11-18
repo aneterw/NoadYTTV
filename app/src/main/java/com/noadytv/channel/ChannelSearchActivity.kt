@@ -29,6 +29,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.noadytv.R
+import com.noadytv.MainActivity
 import com.noadytv.PlayerActivity
 import com.noadytv.python.VideoSearchResult
 import com.noadytv.channel.data.ChannelSearchResult
@@ -701,6 +702,8 @@ class ChannelSearchActivity : ComponentActivity() {
         // 搜尋標的若已切回「影片」，離開頻道頁回到影片主頁（避免從設定返回後仍停留在頻道）
         val targetPrefs = getSharedPreferences("player_settings", MODE_PRIVATE)
         if ("video" == targetPrefs.getString("pref_search_target", "video")) {
+            startActivity(Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
             finish()
             return
         }
