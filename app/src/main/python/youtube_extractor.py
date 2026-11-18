@@ -743,7 +743,7 @@ def _fetch_single_channel_details(basic_info: dict) -> dict:
                 "channel_id": ch_id,
                 "title": basic_info["title"],
                 "follower_count": info.get("channel_follower_count"),
-                "description": (info.get("description") or "").strip(),
+                "description": "",
                 "thumbnail": _extract_best_avatar(thumbs),
             }
         except Exception as e:
@@ -754,11 +754,10 @@ def _fetch_single_channel_details(basic_info: dict) -> dict:
             }
 
 
-def search_channels(keyword: str, max_results: int = 40) -> str:
+def search_channels(keyword: str, max_results: int = 30) -> str:
     """搜尋 YouTube 頻道，回傳 JSON 字串（格式與 search_videos 一致）"""
     print(f"搜尋頻道：{keyword}，上限 {max_results} 個...")
-    # 擴大搜尋基數以確保去重後能湊滿 max_results 筆
-    search_limit = max_results * 5
+    search_limit = int(max_results * 1.3)  # 稍微擴大搜尋基數，確保去重後能湊滿 max_results
     search_query = f"ytsearch{search_limit}:{keyword}"
     opts = {
         "extractor_args": {"youtube": {"player_client": ["ios", "android_tv_embedded"], "client_version": "19.29.1"}},
@@ -766,9 +765,10 @@ def search_channels(keyword: str, max_results: int = 40) -> str:
         "quiet": True,
         "no_warnings": True,
         "timeout": 15,
+        "socket_timeout": 15,
     }
     seen_ids: set = set()
-    basics: list = []
+    results = []
     with yt_dlp.YoutubeDL(opts) as ydl:
         result = ydl.extract_info(search_query, download=False) or {}
         for entry in result.get("entries", []) or []:
@@ -778,21 +778,27 @@ def search_channels(keyword: str, max_results: int = 40) -> str:
             name = entry.get("channel") or entry.get("uploader", "")
             if cid and cid not in seen_ids:
                 seen_ids.add(cid)
-                basics.append({"title": name, "channel_id": cid})
-                if len(basics) >= max_results:
+                results.append({
+                    "channel_id": cid,
+                    "title": name,
+                    "follower_count": None,  # 跳過逐一抓詳情，先回傳基本結果，加快搜尋
+                    "description": "",
+                    "thumbnail": None,  # 跳過逐一抓詳情，圖片可稍後非同步載入
+                })
+                if len(results) >= max_results:
                     break
-    print(f"已找到 {len(basics)} 個頻道，逐一抓詳情...")
-    results = [None] * len(basics)
+    print(f"已找到 {len(results)} 個頻道，逐一抓詳情...")
     import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    detailed = [None] * len(results)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         future_to_idx = {
             executor.submit(_fetch_single_channel_details, ch): i
-            for i, ch in enumerate(basics)
+            for i, ch in enumerate(results)
         }
         for future in concurrent.futures.as_completed(future_to_idx):
             idx = future_to_idx[future]
-            results[idx] = future.result()
-    return json.dumps(results, ensure_ascii=False)
+            detailed[idx] = future.result()
+    return json.dumps(detailed, ensure_ascii=False)
 
 
 def get_channel_videos(channel_url: str, max_videos: int = 40) -> str:

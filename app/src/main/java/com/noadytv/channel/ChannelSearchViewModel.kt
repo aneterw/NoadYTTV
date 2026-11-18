@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * 頻道搜尋 ViewModel — 完全獨立於 MainViewModel
@@ -54,16 +55,25 @@ class ChannelSearchViewModel(application: Application) : AndroidViewModel(applic
         _isSearchingChannels.value = true
         _channelSearchError.value = null
         viewModelScope.launch {
-            val result = bridge.searchChannels(query, maxResults)
+            val result = withTimeoutOrNull(90_000) {
+                bridge.searchChannels(query, maxResults)
+            }
             _isSearchingChannels.value = false
-            result.onSuccess { rawChannels ->
-                // 篩選：至少 5000 訂閱者，若全數低於門檻則保留全部結果
-                val filtered = rawChannels.filter { ch ->
-                    ch.follower_count == null || ch.follower_count!! >= 5000
-                }.takeIf { it.isNotEmpty() } ?: rawChannels
-                _channelResults.value = filtered
-            }.onFailure { error ->
-                _channelSearchError.value = error.message
+            if (result == null) {
+                // 超時
+                _channelSearchError.value = "搜尋超時（90 秒），請稍後再試"
+                _channelResults.value = emptyList()
+            } else {
+                result.onSuccess { rawChannels ->
+                    // 篩選：至少 5000 訂閱者，若全數低於門檻則保留全部結果
+                    val filtered = rawChannels.filter { ch ->
+                        ch.follower_count == null || ch.follower_count!! >= 5000
+                    }.takeIf { it.isNotEmpty() } ?: rawChannels
+                    _channelResults.value = filtered
+                }.onFailure { error ->
+                    _channelSearchError.value = error.message
+                    _channelResults.value = emptyList()
+                }
             }
         }
     }
@@ -75,12 +85,20 @@ class ChannelSearchViewModel(application: Application) : AndroidViewModel(applic
         _isSearchingVideos.value = true
         _videoSearchError.value = null
         viewModelScope.launch {
-            val result = bridge.getChannelVideos(channelUrl, maxVideos)
+            val result = withTimeoutOrNull(90_000) {
+                bridge.getChannelVideos(channelUrl, maxVideos)
+            }
             _isSearchingVideos.value = false
-            result.onSuccess { videos ->
-                _videoResults.value = videos
-            }.onFailure { error ->
-                _videoSearchError.value = error.message
+            if (result == null) {
+                _videoSearchError.value = "載入影片超時（90 秒），請稍後再試"
+                _videoResults.value = emptyList()
+            } else {
+                result.onSuccess { videos ->
+                    _videoResults.value = videos
+                }.onFailure { error ->
+                    _videoSearchError.value = error.message
+                    _videoResults.value = emptyList()
+                }
             }
         }
     }

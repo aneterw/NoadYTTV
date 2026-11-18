@@ -28,21 +28,23 @@ class SettingsActivity : AppCompatActivity() {
 
     private val PREF_FILE = "player_settings"
         private val KEY_SUBTITLE = "pref_subtitle"
-            private val KEY_RESOLUTION = "pref_resolution"
-            private val KEY_LANGUAGE = "pref_language"
-            private val KEY_AUTO_PLAY = "pref_auto_play_next"
-            private val KEY_SEARCH_LIMIT = "pref_search_limit"
-            private val KEY_SEARCH_TARGET = "pref_search_target"
-            private val KEY_FOCUS_INDEX = "pref_focus_index"
+        private val KEY_RESOLUTION = "pref_resolution"
+        private val KEY_LANGUAGE = "pref_language"
+        private val KEY_AUTO_PLAY = "pref_auto_play_next"
+        private val KEY_SEARCH_LIMIT = "pref_search_limit"
+        private val KEY_CHANNEL_SEARCH_LIMIT = "pref_channel_search_limit"
+        private val KEY_SEARCH_TARGET = "pref_search_target"
+        private val KEY_FOCUS_INDEX = "pref_focus_index"
 
-            private lateinit var prefs: SharedPreferences
-            private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=搜尋上限, 4=自動播放, 5=搜尋標的, 6=返回主頁
+        private lateinit var prefs: SharedPreferences
+        private var currentFocusIndex = 0  // 0=字幕, 1=解析度, 2=語言, 3=影片搜尋上限, 4=頻道搜尋上限, 5=自動播放, 6=搜尋標的, 7=返回主頁
 
         // 焦點項目引用
         private lateinit var subtitleRow: LinearLayout
         private lateinit var resolutionRow: LinearLayout
         private lateinit var languageRow: LinearLayout
         private lateinit var searchLimitRow: LinearLayout
+        private lateinit var channelSearchLimitRow: LinearLayout
         private lateinit var autoPlayRow: LinearLayout
         private lateinit var searchTargetRow: LinearLayout
         private lateinit var btnBack: Button
@@ -87,8 +89,9 @@ class SettingsActivity : AppCompatActivity() {
         resolutionRow = buildSettingRow(getString(R.string.resolution_label), getCurrentResolutionLabel(), 1)
         languageRow = buildSettingRow(getString(R.string.language_label), getCurrentLanguageLabel(), 2)
         searchLimitRow = buildSettingRow(getString(R.string.search_limit_label), getCurrentSearchLimitLabel(), 3)
-        autoPlayRow = buildSettingRow(getString(R.string.auto_play_next), getAutoPlayLabel(), 4)
-        searchTargetRow = buildSettingRow(getString(R.string.search_target_label), getCurrentSearchTargetLabel(), 5)
+        channelSearchLimitRow = buildSettingRow(getString(R.string.channel_search_limit_label), getCurrentChannelSearchLimitLabel(), 4)
+        autoPlayRow = buildSettingRow(getString(R.string.auto_play_next), getAutoPlayLabel(), 5)
+        searchTargetRow = buildSettingRow(getString(R.string.search_target_label), getCurrentSearchTargetLabel(), 6)
 
         btnBack = Button(this).apply {
             text = getString(R.string.settings_back_home)
@@ -116,6 +119,7 @@ class SettingsActivity : AppCompatActivity() {
         menu.addView(resolutionRow)
         menu.addView(languageRow)
         menu.addView(searchLimitRow)
+        menu.addView(channelSearchLimitRow)
         menu.addView(autoPlayRow)
         menu.addView(searchTargetRow)
         menu.addView(btnBack)
@@ -131,9 +135,10 @@ class SettingsActivity : AppCompatActivity() {
                     1 -> resolutionRow.requestFocus()
                     2 -> languageRow.requestFocus()
                     3 -> searchLimitRow.requestFocus()
-                    4 -> autoPlayRow.requestFocus()
-                    5 -> searchTargetRow.requestFocus()
-                    6 -> btnBack.requestFocus()
+                    4 -> channelSearchLimitRow.requestFocus()
+                    5 -> autoPlayRow.requestFocus()
+                    6 -> searchTargetRow.requestFocus()
+                    7 -> btnBack.requestFocus()
                 }
             }
 
@@ -197,8 +202,9 @@ class SettingsActivity : AppCompatActivity() {
                 1 -> toggleResolution()
                 2 -> toggleLanguage()
                 3 -> toggleSearchLimit()
-                4 -> toggleAutoPlay()
-                5 -> toggleSearchTarget()
+                4 -> toggleChannelSearchLimit()
+                5 -> toggleAutoPlay()
+                6 -> toggleSearchTarget()
             }
         }
 
@@ -215,7 +221,7 @@ class SettingsActivity : AppCompatActivity() {
 
     // 更新焦點視覺：當前焦點項目背景變亮黃
     private fun updateFocusVisual() {
-        val rows = arrayOf(subtitleRow, resolutionRow, languageRow, searchLimitRow, autoPlayRow, searchTargetRow, btnBack)
+        val rows = arrayOf(subtitleRow, resolutionRow, languageRow, searchLimitRow, channelSearchLimitRow, autoPlayRow, searchTargetRow, btnBack)
 
         rows.forEachIndexed { index, view ->
             val isFocused = index == currentFocusIndex
@@ -242,7 +248,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun moveFocus(delta: Int) {
-        val total = 7  // 字幕, 解析度, 語言, 搜尋上限, 自動播放, 搜尋標的, 返回主頁
+        val total = 8  // 字幕, 解析度, 語言, 影片搜尋上限, 頻道搜尋上限, 自動播放, 搜尋標的, 返回主頁
         currentFocusIndex = (currentFocusIndex + delta + total) % total
         updateFocusVisual()
 
@@ -251,9 +257,10 @@ class SettingsActivity : AppCompatActivity() {
             1 -> resolutionRow.requestFocus()
             2 -> languageRow.requestFocus()
             3 -> searchLimitRow.requestFocus()
-            4 -> autoPlayRow.requestFocus()
-            5 -> searchTargetRow.requestFocus()
-            6 -> btnBack.requestFocus()
+            4 -> channelSearchLimitRow.requestFocus()
+            5 -> autoPlayRow.requestFocus()
+            6 -> searchTargetRow.requestFocus()
+            7 -> btnBack.requestFocus()
         }
     }
 
@@ -360,12 +367,30 @@ class SettingsActivity : AppCompatActivity() {
             recreate()
         }
 
-        // 搜尋上限列表（循環切換）
+        // 影片搜尋上限列表（循環切換）
         private val SEARCH_LIMITS = listOf(40, 60, 80, 100, 120)
 
         private fun getCurrentSearchLimitLabel(): String {
             val limit = prefs.getInt(KEY_SEARCH_LIMIT, 60)
             return limit.toString()
+        }
+
+        // 頻道搜尋上限列表（循環切換）
+        private val CHANNEL_SEARCH_LIMITS = listOf(30, 40, 50)
+
+        private fun getCurrentChannelSearchLimitLabel(): String {
+            val limit = prefs.getInt(KEY_CHANNEL_SEARCH_LIMIT, 30)
+            return limit.toString()
+        }
+
+        private fun toggleChannelSearchLimit() {
+            val current = prefs.getInt(KEY_CHANNEL_SEARCH_LIMIT, 30)
+            val currentIndex = CHANNEL_SEARCH_LIMITS.indexOf(current)
+            val nextIndex = (currentIndex + 1) % CHANNEL_SEARCH_LIMITS.size
+            val newLimit = CHANNEL_SEARCH_LIMITS[nextIndex]
+            prefs.edit().putInt(KEY_CHANNEL_SEARCH_LIMIT, newLimit).apply()
+            prefs.edit().putInt(KEY_FOCUS_INDEX, currentFocusIndex).apply()
+            recreate()
         }
 
         private fun toggleSearchLimit() {

@@ -224,6 +224,20 @@ class ChannelSearchActivity : ComponentActivity() {
             }
         }
 
+        // ── 觀察頻道搜尋錯誤 ───────────────────────────────
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                viewModel.channelSearchError.collect { error ->
+                    if (error != null && currentLayer == 1) {
+                        android.util.Log.e("ChannelSearch", "channel search error: $error")
+                        searchingText.visibility = View.GONE
+                        emptyState.text = "搜尋失敗：$error\n\n${getString(R.string.voice_search_tip)}"
+                        emptyState.visibility = View.VISIBLE
+                    }
+                }
+            }
+        }
+
         // ── 觀察 Layer 2：頻道內影片結果（與 MainViewModel.searchResults 同等處理）
         lifecycleScope.launch {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
@@ -253,8 +267,11 @@ class ChannelSearchActivity : ComponentActivity() {
                             }
                         }
                         // 儲存 L2 的完整狀態（含耗時），回播放器再回來時直接還原
-                        val elapsed = "搜尋耗時 ${"%.1f".format((System.currentTimeMillis() - videoLoadStartTime) / 1000.0f)}s"
-                        L2_statusText = "$elapsed，找到 ${videos.size} 部影片 - in ${viewModel.currentChannelTitle}"
+                        // 只有在 L2_statusText 為空時才重新計算耗時（從播放器返回時不重新計算，避免累加）
+                        if (L2_statusText.isBlank()) {
+                            val elapsed = "搜尋耗時 ${"%.1f".format((System.currentTimeMillis() - videoLoadStartTime) / 1000.0f)}s"
+                            L2_statusText = "$elapsed，找到 ${videos.size} 部影片 - in ${viewModel.currentChannelTitle}"
+                        }
                         searchingText.text = L2_statusText
                         searchingText.visibility = View.VISIBLE
 
@@ -372,7 +389,7 @@ class ChannelSearchActivity : ComponentActivity() {
         savedChannelPosition = -1
         channelSearchStartTime = System.currentTimeMillis()
         val prefs = getSharedPreferences("player_settings", MODE_PRIVATE)
-        val maxResults = prefs.getInt("pref_channel_search_limit", prefs.getInt("pref_search_limit", 40))
+        val maxResults = prefs.getInt("pref_channel_search_limit", 30)
         viewModel.searchChannels(query, maxResults)
     }
 

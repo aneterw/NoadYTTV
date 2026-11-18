@@ -17,7 +17,8 @@
     <string name="audio_track">Pista de audio</string>
     <string name="video_info">Información del video</string>
     <string name="auto_play_next">Reproducir siguiente automáticamente</string>
-    <string name="search_limit_label">Límite de búsqueda</string>
+    <string name="search_limit_label">Límite de búsqueda de videos</string>
+    <string name="channel_search_limit_label">Límite de búsqueda de canales</string>
     <string name="voice_search">Búsqueda por voz</string>
     <string name="settings_title">Configuración</string>
     <string name="settings_back_home">Volver al inicio</string>
