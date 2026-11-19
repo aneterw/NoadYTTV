@@ -335,6 +335,9 @@ class ChannelSearchActivity : ComponentActivity() {
         historyScroll = findViewById(R.id.history_scroll)
         loadChannelSearchHistory()
         showChannelSearchHistory()
+
+        // 表頭顯示版本號
+        findViewById<TextView>(R.id.version_text).text = "v0.8.5"
     }
 
     // ── 搜尋觸發（Layer 1 = 搜尋頻道；Layer 2 = 載入該頻道影片）

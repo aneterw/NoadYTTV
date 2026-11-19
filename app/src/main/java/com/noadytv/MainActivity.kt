@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
         private var clearSearchJob: Job? = null
         private var lastSelectedView: View? = null
         private var lastBackPressTime = 0L
+        private var searchStartTime = 0L
         companion object { private const val BACK_PRESS_TIMEOUT = 2000L }
 
         // 搜尋歷史（本地持久化）
@@ -156,7 +157,8 @@ class MainActivity : ComponentActivity() {
 
                             override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
                         }
-                        searchingText.text = getString(R.string.search_complete, videos.size) + " $lastSearchQuery"
+                        val elapsed = "搜尋耗時 ${"%.1f".format((System.currentTimeMillis() - searchStartTime) / 1000.0f)}s"
+                        searchingText.text = "$elapsed，${getString(R.string.search_complete, videos.size)} $lastSearchQuery"
                         searchingText.visibility = android.view.View.VISIBLE
                         
                         // 如果是從 PlayerActivity 返回，恢復焦點
@@ -199,6 +201,9 @@ class MainActivity : ComponentActivity() {
         historyScroll = findViewById(R.id.history_scroll)
         loadSearchHistory()
         showSearchHistory()
+
+        // 表頭顯示版本號
+        findViewById<TextView>(R.id.version_text).text = "v0.8.5"
     }
 
     private fun performSearch() {
@@ -215,6 +220,9 @@ class MainActivity : ComponentActivity() {
                 val prefs = getSharedPreferences("player_settings", MODE_PRIVATE)
                 val maxResults = prefs.getInt("pref_search_limit", 60)
             
+                // 記錄搜尋開始時間，用於顯示耗時
+                searchStartTime = System.currentTimeMillis()
+
                 viewModel.search(query, maxResults)
 
                 // 搜尋觸發後 0.5 秒自動清除關鍵字輸入框，但保留搜尋結果畫面
