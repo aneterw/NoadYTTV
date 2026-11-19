@@ -168,7 +168,11 @@ class PlayerActivity : ComponentActivity() {
                         // 設定字幕樣式：置中 + 縮小字體（透過 onCues callback + SubtitleView API）
                         player?.addListener(object : Player.Listener {
                             override fun onCues(cueGroup: CueGroup) {
-                                android.util.Log.d("NoadYTTV_Subtitle", "onCues fired: ${cueGroup.cues.size} raw cues")
+                                val cueCount = cueGroup.cues.size
+                                android.util.Log.d("NoadYTTV_Subtitle", "=== onCues fired: $cueCount raw cues ===")
+                                cueGroup.cues.forEachIndexed { index, cue ->
+                                    android.util.Log.d("NoadYTTV_Subtitle", "  cue[$index] text='${cue.text}'")
+                                }
                                 val cues = cueGroup.cues.map { cue ->
                                     // YouTube VTT cue 的 backgroundColor 預設為 opaque black，
                                     // 需要明確設為 TRANSPARENT 才能消除黑色背景條。
@@ -188,7 +192,11 @@ class PlayerActivity : ComponentActivity() {
                                     } catch (_: Exception) {}
                                     builder.build()
                                 }
-                                playerView?.subtitleView?.setCues(cues)
+                                android.util.Log.d("NoadYTTV_Subtitle", "setCues: ${cues.size} cues -> SubtitleView")
+                                // ExoPlayer 有時會同時傳多個 cue（舊的還沒結束，新的已經出現）。
+                                // 字幕一次只顯示一行，只保留最後一個（最新的）cue，避免舊字幕殘留重疊。
+                                val finalCues = if (cues.size > 1) cues.subList(cues.size - 1, cues.size) else cues
+                                playerView?.subtitleView?.setCues(finalCues)
                             }
                         })
                         // SubtitleView 全局樣式：禁用 VTT 內嵌樣式，固定字級，黃色文字+極淡背景

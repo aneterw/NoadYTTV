@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
         private var lastSelectedView: View? = null
         private var lastBackPressTime = 0L
         private var searchStartTime = 0L
+        private var searchStatusText: String? = null  // 已顯示的搜尋狀態文字，避免從播放器返回時重新累加耗時
         companion object { private const val BACK_PRESS_TIMEOUT = 2000L }
 
         // 搜尋歷史（本地持久化）
@@ -157,8 +158,16 @@ class MainActivity : ComponentActivity() {
 
                             override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
                         }
-                        val elapsed = "搜尋耗時 ${"%.1f".format((System.currentTimeMillis() - searchStartTime) / 1000.0f)}s"
-                        searchingText.text = "$elapsed，${getString(R.string.search_complete, videos.size)} $lastSearchQuery"
+                        // 只在新搜尋時計算耗時；從播放器返回時不重新累加
+                        val statusText: String
+                        if (searchStatusText == null) {
+                            val elapsed = "搜尋耗時 ${"%.1f".format((System.currentTimeMillis() - searchStartTime) / 1000.0f)}s"
+                            statusText = "$elapsed，${getString(R.string.search_complete, videos.size)} $lastSearchQuery"
+                            searchStatusText = statusText
+                        } else {
+                            statusText = searchStatusText!!
+                        }
+                        searchingText.text = statusText
                         searchingText.visibility = android.view.View.VISIBLE
                         
                         // 如果是從 PlayerActivity 返回，恢復焦點
@@ -203,7 +212,7 @@ class MainActivity : ComponentActivity() {
         showSearchHistory()
 
         // 表頭顯示版本號
-        findViewById<TextView>(R.id.version_text).text = "v0.8.5"
+        findViewById<TextView>(R.id.version_text).text = "v0.8.6"
     }
 
     private fun performSearch() {
@@ -222,6 +231,8 @@ class MainActivity : ComponentActivity() {
             
                 // 記錄搜尋開始時間，用於顯示耗時
                 searchStartTime = System.currentTimeMillis()
+                // 新搜尋開始，清空舊的狀態文字，讓 collect 區塊重新計算耗時
+                searchStatusText = null
 
                 viewModel.search(query, maxResults)
 
